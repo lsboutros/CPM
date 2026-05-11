@@ -1,64 +1,52 @@
 # CPM — Cyber Portfolio Management Tool
 
-A FastAPI-based tool for managing a cybersecurity portfolio: tracking **Assets**, the
-**Risks** that threaten them, the **Controls** that mitigate those risks, and the
-**Vulnerabilities** that may expose them.
+Front-end for the **Cyber Portfolio Management** workflow. The application is
+organised as a sequence of pages that follow an initiative end-to-end:
 
-## Domain model
+| #  | Page                  | Purpose                                                  |
+|----|-----------------------|----------------------------------------------------------|
+| 01 | Strategy & Initiation | Capture a new initiative before formal project creation  |
+| 02 | RFP & Procurement     | Draft and run procurement                                |
+| 03 | Contracting & Award   | Lock budget, milestones, and risk register               |
+| 04 | Weekly Execution      | Track delivery cadence                                   |
+| 05 | QA Workflow           | Quality review of deliverables                           |
+| 06 | CISO Dashboard        | Portfolio-level view for the CISO                        |
 
-| Resource        | Purpose                                                                 |
-|-----------------|-------------------------------------------------------------------------|
-| `Asset`         | Anything of value: systems, applications, data stores, hardware.        |
-| `Risk`          | A scenario of harm to one or more assets, scored by likelihood/impact.  |
-| `Control`       | A safeguard (preventive / detective / corrective) reducing risk.        |
-| `Vulnerability` | A specific weakness on an asset (CVE, misconfig, etc.).                 |
+This PR delivers **Page 01 — Strategy & Initiation (v02)**.
 
-Resources are linked: a `Risk` references an `Asset`, a `Control` references one or
-more `Risks` it mitigates, a `Vulnerability` references the `Asset` it affects.
+## Stack
 
-## Quickstart
+- [Vite](https://vitejs.dev/) + React 18 (JSX, no TypeScript)
+- No CSS framework — inline styles using the CPM brand token palette defined
+  in the component itself
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
-# Run the dev server
-uvicorn app.main:app --reload
-
-# In another terminal: hit the API docs
-open http://127.0.0.1:8000/docs
-```
-
-## Layout
-
-```
-app/
-  main.py              # FastAPI app + router wiring
-  models.py            # Pydantic schemas (Asset / Risk / Control / Vulnerability)
-  storage.py           # In-memory repository (swap for a DB later)
-  routers/
-    assets.py
-    risks.py
-    controls.py
-    vulnerabilities.py
-tests/
-  test_assets.py
-  test_risks.py
-  test_controls.py
-  test_vulnerabilities.py
-```
-
-The storage layer is intentionally in-memory so the scaffold runs with zero setup;
-replacing `app/storage.py` with a SQLAlchemy- or Tortoise-backed implementation
-is the natural next step.
-
-## Tests
+## Getting started
 
 ```bash
-pytest
+npm install
+npm run dev
 ```
 
-## License
+Open the URL Vite prints (defaults to <http://localhost:5173>).
 
-MIT — see [LICENSE](LICENSE).
+## Build
+
+```bash
+npm run build
+npm run preview
+```
+
+## Page 01 sections
+
+Strategy & Initiation walks the Domain Lead through seven sections:
+
+1. Project Identity
+2. Strategic Vision
+3. Scope & Milestones
+4. Prioritization (weighted scoring across six criteria)
+5. Budget & Timeline
+6. Dependencies
+7. Submit (with summary + approval workflow)
+
+The priority score is calculated live from the answers given in the
+Prioritization section using the weights defined in `src/CPMPage01.jsx`.

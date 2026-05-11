@@ -36,6 +36,19 @@ npm run build
 npm run preview
 ```
 
+## Deployment (GitHub Pages)
+
+Pushes to `main` trigger `.github/workflows/deploy.yml`, which builds the
+app and publishes `dist/` to GitHub Pages. The deployed site lives at
+<https://lsboutros.github.io/CPM/>.
+
+The Vite `base` is set to `/CPM/` in `vite.config.js` so asset URLs
+resolve correctly under the repo sub-path. If you fork or rename the
+repository, update that value to match.
+
+One-time GitHub setup (already done if the workflow has run successfully):
+**Settings → Pages → Build and deployment → Source: GitHub Actions**.
+
 ## Page 01 sections
 
 Strategy & Initiation walks the Domain Lead through seven sections:

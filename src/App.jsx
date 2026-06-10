@@ -49,7 +49,10 @@ const keysToLabels = (keys = []) =>
 // ── Adapter: canonical initiative record → CPM pipeline/project item ─────────
 function toCpmItem(rec) {
   const domainLabel = DOMAIN_KEY_TO_LABEL[rec.domainId] || rec.domainId || "";
-  const phase = rec.cpmPhase || "Strategy";
+  const projStatusPhase = (rec.status === "Closed") ? "Closed"
+    : ["On Track","At Risk","Delayed","Active"].includes(rec.status) ? "Active"
+    : null;
+  const phase = rec.cpmPhase || projStatusPhase || "Strategy";
   const item = {
     id:              rec.initiativeId || rec.id,
     name:            rec.name || "",
@@ -93,7 +96,11 @@ function mergeCpmItem(item, existing) {
     initiativeId:           item.id,
     name:                   item.name ?? base.name,
     domainId:               domainKey,
-    cpmPhase:               item.phase || base.cpmPhase || "Strategy",
+    cpmPhase:               item.phase
+                              || ((item.status === "Closed") ? "Closed"
+                                  : ["On Track","At Risk","Delayed","Active"].includes(item.status) ? "Active"
+                                  : null)
+                              || base.cpmPhase || "Strategy",
     priorityScore:          item.score ?? base.priorityScore,
     initiativeOwnerId:      item.owner || base.initiativeOwnerId,
     estimatedBudget:        item.budget || base.estimatedBudget,
@@ -162,18 +169,20 @@ const CPM_DOMAINS     = ["Identity & Access Management","Network Security","GRC 
 const CPM_PILLARS     = ["Cyber Resilience","Risk Reduction","Regulatory Compliance","Digital Transformation Enablement","Talent & Culture","Operational Excellence"];
 const CPM_FRAMEWORKS  = ["NIST CSF","ISO 27001","NIST 800-53","CIS Controls","DORA","NCA ECC","PCI DSS","GDPR","SOC 2"];
 const DELIV_TYPES = ["Document","System","Report","Workshop","Training","Assessment","Tool"];
-const RFP_STATUS_STEPS = ["Draft","Internally Approved","Issued","Q&A Period","Closed"];
 
+// Contracting constants
 const RISK_CATS       = ["Strategic","Technical","Operational","Regulatory","Vendor"];
 const RISK_LEVELS     = ["High","Medium","Low"];
 const RISK_STATUSES   = ["Open","Mitigated","Accepted","Escalated to Issue","Closed"];
 const DELIV_STATUSES  = ["Not Started","In Progress","Submitted for QA","Approved","Rejected"];
 const MS_STATUSES     = ["Not Started","In Progress","Completed","Delayed"];
 
+// Weekly update constants
 const ACTION_PRIORITY = ["High","Medium","Low"];
 const ACTION_STATUS   = ["Open","In Progress","Completed","Blocked"];
 const OVERRIDE_STATUS = ["On Track","At Risk","Delayed"];
 
+// Reporting (contracting submit section)
 const REPORT_CADENCES = ["Weekly","Bi-weekly","Monthly"];
 const REPORT_DAYS     = ["Monday","Tuesday","Wednesday","Thursday","Friday"];
 const REPORT_FORMATS  = ["Executive summary","Full detail","Both"];
@@ -231,20 +240,19 @@ const STRATEGY_SECTIONS = [
 
 const RFP_SECTIONS = [
   {id:"reference",    label:"Strategy Reference"},
-  {id:"vision",       label:"Vision & KPIs"},
+  {id:"vision",       label:"Vision & Value"},
   {id:"scope",        label:"Scope Revision"},
   {id:"milestones",   label:"Milestones & Deliverables"},
   {id:"requirements", label:"Requirements"},
-  {id:"rfpstatus",    label:"RFP Status"},
   {id:"submit",       label:"Submit"},
 ];
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 const INIT_PIPELINE = [
-  { id:"CPM-2025-001", name:"IAM Modernisation Programme",         domain:"Identity & Access Management", phase:"Strategy",    score:88, owner:"Sarah Al-Mansouri", budget:"$1.2M",  submitted:"12 Apr 2025", pillar:"Risk Reduction",       status:"Pending CISO Review", frameworks:["NIST CSF","ISO 27001"], problemStatement:"Lack of centralised identity controls across business units.", visionStatement:"A unified IAM platform covering all users and privileged accounts.", businessOutcome:"Reduce identity-related incidents by 80%.", inScope:"All user identities across HQ and subsidiaries.", assumptions:"Executive sponsorship confirmed.", milestones:[{name:"Discovery",date:"2025-06-01",deliverable:"As-Is Report"}], kpis:[{name:"MFA Coverage",baseline:"40%",target:"95%",method:"Monthly audit"}], depRisks:[{initiative:"Network Segmentation",dependency:"Shared directory",risk:"Delays IAM rollout",severity:"High"}] },
-  { id:"CPM-2025-004", name:"Cloud Security Baseline Framework",   domain:"Cloud Security",               phase:"Strategy",    score:74, owner:"Khalid Ibrahim",    budget:"$680K",  submitted:"18 Apr 2025", pillar:"Cyber Resilience",     status:"Pending CISO Review", frameworks:["CIS Controls","NIST CSF"], problemStatement:"No consistent security baseline across cloud environments.", visionStatement:"Standardised controls across all cloud workloads.", businessOutcome:"Eliminate misconfiguration incidents.", inScope:"AWS and Azure production environments.", assumptions:"Cloud team available.", milestones:[{name:"Baseline Assessment",date:"2025-07-01",deliverable:"Gap Report"}], kpis:[{name:"Misconfiguration rate",baseline:"12%",target:"<2%",method:"Weekly CSPM scan"}], depRisks:[] },
-  { id:"CPM-2025-002", name:"SOC Uplift & SIEM Migration",         domain:"Security Operations (SOC)",    phase:"RFP",         score:91, owner:"Ahmed Rashid",      budget:"$3.4M",  submitted:"02 Mar 2025", pillar:"Cyber Resilience",     status:"RFP Issued",          frameworks:["NIST CSF","CIS Controls"], problemStatement:"Current SIEM lacks coverage and correlation capability.", visionStatement:"Modern SOC with 24/7 detection and response.", businessOutcome:"MTTD reduced from 72hrs to under 4hrs.", inScope:"All IT and OT environments.", assumptions:"Vendor shortlist approved.", milestones:[{name:"RFP Close",date:"2025-05-30",deliverable:"Vendor Proposals"},{name:"Evaluation",date:"2025-06-30",deliverable:"Evaluation Report"}], kpis:[{name:"MTTD",baseline:"72hrs",target:"<4hrs",method:"SOC metrics dashboard"}], depRisks:[] },
-  { id:"CPM-2025-005", name:"Data Loss Prevention Implementation", domain:"Data Protection",              phase:"RFP",         score:79, owner:"Fatima Al-Zahra",   budget:"$900K",  submitted:"14 Mar 2025", pillar:"Risk Reduction",       status:"RFP Draft",           frameworks:["GDPR","ISO 27001"], problemStatement:"No automated controls preventing sensitive data exfiltration.", visionStatement:"Organisation-wide DLP covering endpoints, email and cloud.", businessOutcome:"Zero data loss incidents post-implementation.", inScope:"All endpoints and email systems.", assumptions:"Data classification completed first.", milestones:[{name:"Requirements",date:"2025-06-01",deliverable:"Requirements Doc"}], kpis:[{name:"Data incidents",baseline:"8/yr",target:"0",method:"Incident register"}], depRisks:[] },
+  { id:"CPM-2025-001", name:"IAM Modernisation Programme",         domain:"Identity & Access Management", phase:"Strategy",    score:88, owner:"Sarah Al-Mansouri", budget:"$1.2M",  submitted:"12 Apr 2025", pillar:"Risk Reduction", cisoPillars:["Risk Reduction","Cyber Resilience"], status:"Pending CISO Review", problemStatement:"Lack of centralised identity controls across business units.", visionStatement:"A unified IAM platform covering all users and privileged accounts.", strategyOutcomes:[{id:"SO-001",outcome:"Reduce identity-related incidents by 80%",source:"predefined",kpiName:"Identity incidents per quarter",measurementMethod:"Incident register review",targetDate:"2026-03-31",msName:"IAM platform live",msTargetDate:"2025-12-01"},{id:"SO-002",outcome:"Achieve 95% MFA coverage across all users",source:"ai",kpiName:"MFA coverage (%)",measurementMethod:"Monthly IAM audit",targetDate:"2025-10-31",msName:"MFA rollout complete",msTargetDate:"2025-09-30"}], inScope:"All user identities across HQ and subsidiaries.", assumptions:"Executive sponsorship confirmed.", depRisks:[{initiative:"Network Segmentation",dependency:"Shared directory",risk:"Delays IAM rollout",severity:"High"}] },
+  { id:"CPM-2025-004", name:"Cloud Security Baseline Framework",   domain:"Cloud Security",               phase:"Strategy",    score:74, owner:"Khalid Ibrahim",    budget:"$680K",  submitted:"18 Apr 2025", pillar:"Cyber Resilience", cisoPillars:["Cyber Resilience","Regulatory Compliance"], status:"Pending CISO Review", problemStatement:"No consistent security baseline across cloud environments.", visionStatement:"Standardised controls across all cloud workloads.", strategyOutcomes:[{id:"SO-001",outcome:"Eliminate cloud misconfiguration incidents",source:"predefined",kpiName:"Misconfiguration rate (%)",measurementMethod:"Weekly CSPM scan",targetDate:"2025-11-30",msName:"Baseline enforced",msTargetDate:"2025-10-15"}], inScope:"AWS and Azure production environments.", assumptions:"Cloud team available.", depRisks:[] },
+  { id:"CPM-2025-002", name:"SOC Uplift & SIEM Migration",         domain:"Security Operations (SOC)",    phase:"RFP",         score:91, owner:"Ahmed Rashid",      budget:"$3.4M",  submitted:"02 Mar 2025", pillar:"Cyber Resilience", cisoPillars:["Cyber Resilience","Operational Excellence"], status:"RFP Issued", problemStatement:"Current SIEM lacks coverage and correlation capability.", visionStatement:"Modern SOC with 24/7 detection and response.", strategyOutcomes:[{id:"SO-001",outcome:"Reduce mean time to detect from 72hrs to under 4hrs",source:"ai",kpiName:"MTTD (hours)",measurementMethod:"SOC metrics dashboard",targetDate:"2025-12-31",msName:"SIEM migration complete",msTargetDate:"2025-11-30"}], inScope:"All IT and OT environments.", assumptions:"Vendor shortlist approved.", depRisks:[] },
+  { id:"CPM-2025-005", name:"Data Loss Prevention Implementation", domain:"Data Protection",              phase:"RFP",         score:79, owner:"Fatima Al-Zahra",   budget:"$900K",  submitted:"14 Mar 2025", pillar:"Risk Reduction", cisoPillars:["Risk Reduction","Regulatory Compliance"], status:"RFP Draft", problemStatement:"No automated controls preventing sensitive data exfiltration.", visionStatement:"Organisation-wide DLP covering endpoints, email and cloud.", strategyOutcomes:[{id:"SO-001",outcome:"Eliminate data loss incidents post-implementation",source:"predefined",kpiName:"Data loss incidents per year",measurementMethod:"Incident register",targetDate:"2026-06-30",msName:"DLP fully deployed",msTargetDate:"2026-03-31"}], inScope:"All endpoints and email systems.", assumptions:"Data classification completed first.", depRisks:[] },
 ];
 
 const INIT_PROJECTS = [
@@ -286,20 +294,42 @@ const INIT_PROJECTS = [
       contractValue:"850000", capex:"550000", opex:"300000",
       visionStatement:"A unified Privileged Access Management platform covering all administrative accounts across HQ and subsidiaries, with full session monitoring and just-in-time access workflows.",
       problemStatement:"Current privileged access is managed manually with shared credentials, no session recording, and no just-in-time access controls — exposing the organisation to significant risk in the event of credential compromise.",
-      businessOutcome:"Eliminate shared privileged credentials, enable session recording on 100% of privileged sessions, and reduce time-to-revoke for departed administrators from days to minutes.",
-      valueRealization:[
-        {valueCommitted:"100% of privileged accounts vaulted in PAM", measurementMethod:"Monthly PAM audit report",      targetDate:"2025-07-15"},
-        {valueCommitted:"Session recording on all privileged sessions", measurementMethod:"PAM session logs review",      targetDate:"2025-06-30"},
-        {valueCommitted:"Time-to-revoke reduced to under 5 minutes",    measurementMethod:"Quarterly access lifecycle audit", targetDate:"2025-09-30"},
+      outcomes:[
+        {id:"O-001",outcome:"Establish a complete privileged-access baseline",source:"ai",kpiName:"Privileged accounts inventoried (%)",measurementMethod:"Discovery audit report",targetDate:"2024-10-30", msName:"Discovery & Assessment", msStart:"2024-09-01", msEnd:"2024-10-30", msWeight:"15", msStatus:"Completed", deliverables:[
+          {id:"D-001",name:"As-Is Architecture Report", type:"Report",   dueDate:"2024-10-15", qaReviewer:"Ahmed Rashid", approver:"CISO", status:"Approved"},
+          {id:"D-002",name:"Gap Analysis Document",      type:"Document", dueDate:"2024-10-30", qaReviewer:"Ahmed Rashid", approver:"CISO", status:"Approved"},
+        ]},
+        {id:"O-002",outcome:"Design a target PAM architecture aligned to the vision",source:"ai",kpiName:"Design sign-off achieved",measurementMethod:"Architecture board approval",targetDate:"2024-12-30", msName:"Design Phase", msStart:"2024-11-01", msEnd:"2024-12-30", msWeight:"20", msStatus:"Completed", deliverables:[
+          {id:"D-003",name:"PAM Target Architecture", type:"Document", dueDate:"2024-12-15", qaReviewer:"Sarah Al-Mansouri", approver:"Domain Lead", status:"Approved"},
+          {id:"D-004",name:"Implementation Plan",     type:"Document", dueDate:"2024-12-30", qaReviewer:"Sarah Al-Mansouri", approver:"Domain Lead", status:"Approved"},
+        ]},
+        {id:"O-003",outcome:"Validate the solution with a controlled pilot",source:"predefined",kpiName:"Pilot UAT pass rate (%)",measurementMethod:"UAT results sign-off",targetDate:"2025-04-30", msName:"Pilot Deployment", msStart:"2025-01-15", msEnd:"2025-04-30", msWeight:"30", msStatus:"In Progress", deliverables:[
+          {id:"D-005",name:"PAM Solution Deployed (Pilot)", type:"System", dueDate:"2025-03-15", qaReviewer:"Omar Al-Hashimi", approver:"CISO", status:"Submitted for QA"},
+          {id:"D-006",name:"UAT Results & Sign-off",        type:"Report", dueDate:"2025-04-30", qaReviewer:"Omar Al-Hashimi", approver:"CISO", status:"In Progress"},
+        ]},
+        {id:"O-004",outcome:"Roll out PAM to full production and hand over to operations",source:"ai",kpiName:"Privileged accounts vaulted (%)",measurementMethod:"Monthly PAM audit report",targetDate:"2025-06-30", msName:"Production Rollout", msStart:"2025-05-01", msEnd:"2025-06-30", msWeight:"35", msStatus:"Not Started", deliverables:[
+          {id:"D-007",name:"Full Production Rollout",       type:"System",   dueDate:"2025-05-30", qaReviewer:"Omar Al-Hashimi",   approver:"CISO", status:"Not Started"},
+          {id:"D-008",name:"Handover & Training Materials", type:"Training", dueDate:"2025-06-15", qaReviewer:"Sarah Al-Mansouri", approver:"Domain Lead", status:"Not Started"},
+        ]},
       ],
       inScope:"All privileged accounts across HQ, regional offices, and subsidiaries, including domain admins, server admins, database admins, application admins, and network device administrators.",
       assumptions:"Active Directory integration is feasible without major modifications. Operations team available for cutover planning.",
       pm:"Rania Yousef", pmEmail:"rania.yousef@org.com", escalationContact:"Sarah Al-Mansouri",
       team:[
-        {name:"Rania Yousef",       role:"Project Manager",           organisation:"Internal", allocation:"100%"},
-        {name:"Ahmed Rashid",       role:"Technical Lead",            organisation:"Internal", allocation:"60%"},
-        {name:"Omar Al-Hashimi",    role:"Security Architect",        organisation:"Internal", allocation:"40%"},
-        {name:"Accenture Team",     role:"Implementation Vendor",     organisation:"Accenture",allocation:"100%"},
+        {name:"Rania Yousef",    role:"Project Manager",    kpis:[
+          {description:"Run weekly governance and keep project on schedule", measurementMethod:"On-time weekly updates submitted", targetDate:"2025-06-30"},
+        ]},
+        {name:"Ahmed Rashid",    role:"Technical Lead",     kpis:[
+          {description:"Lead the PAM target architecture design (own the design, not the vendor)", measurementMethod:"Architecture doc authored & approved", targetDate:"2025-05-15"},
+          {description:"Build internal capability to administer the PAM platform", measurementMethod:"Pass vendor-led admin certification", targetDate:"2025-08-30"},
+        ]},
+        {name:"Omar Al-Hashimi", role:"Security Architect", kpis:[
+          {description:"Define and validate the JIT access control model", measurementMethod:"Access model signed off by CISO", targetDate:"2025-04-30"},
+        ]},
+      ],
+      integrationPoints:[
+        {team:"Network Security", integrationPoint:"Directory services / AD", nature:"Shared identity directory sync", owner:"Ahmed Rashid", status:"In Progress"},
+        {team:"IT Operations",    integrationPoint:"Production cutover window", nature:"Coordinated maintenance window for go-live", owner:"Rania Yousef", status:"To Be Established"},
       ],
     }
   },
@@ -315,30 +345,54 @@ const INIT_PROJECTS = [
 
 const EMPTY_STRATEGY = {
   name:"",domain:"",subDomain:"",owner:"",domainLead:"",
-  problemStatement:"",visionStatement:"",cisoPillar:"",businessOutcome:"",frameworks:[],
-  kpis:[{name:"",baseline:"",target:"",method:""}],
-  inScope:"",outOfScope:[{item:"",reason:""}],assumptions:"",
-  stakeholders:[{name:"",role:""}],milestones:[{name:"",date:"",deliverable:""}],
-  integrations:[{initiative:"",nature:"",risk:""}],
+  problemStatement:"",visionStatement:"",
+  cisoPillars:[],                // multi-select cyber strategic objectives
+  strategyOutcomes:[],           // outcome + KPI + lightweight milestone (carries to contracting)
+  inScope:"",assumptions:"",
   answers:{},budget:"",capex:"",opex:"",startDate:"",endDate:"",budgetStatus:"",
   depRisks:[{initiative:"",dependency:"",risk:"",severity:""}],note:"",
 };
 
+// Factory for a strategy outcome (outcome + KPI + lightweight milestone)
+let _stratOutcomeSeq = 1;
+const newStrategyOutcome = (overrides={}) => ({
+  id: `SO-${String(_stratOutcomeSeq++).padStart(3,"0")}`,
+  outcome:"", source:"free",
+  kpiName:"", measurementMethod:"", targetDate:"",
+  msName:"", msTargetDate:"",
+  ...overrides,
+});
+
 const EMPTY_RFP = (strategy) => ({
+  // pre-filled from strategy, all editable
   visionStatement:   strategy.visionStatement   || "",
   problemStatement:  strategy.problemStatement  || "",
-  businessOutcome:   strategy.businessOutcome   || "",
-  frameworks:        strategy.frameworks        || [],
-  kpis:             (strategy.kpis || []).map(k=>({...k})),
+  cisoPillars:      (strategy.cisoPillars || (strategy.pillar?[strategy.pillar]:[])),
+  // Outcomes carry forward from strategy: outcome + KPI + lightweight milestone,
+  // gaining a simple deliverables list (name + type) at this stage.
+  outcomes:         (strategy.strategyOutcomes || []).map((so,i)=>({
+    id: so.id || `O-${String(i+1).padStart(3,"0")}`,
+    outcome: so.outcome||"", source: so.source||"free",
+    kpiName: so.kpiName||"", measurementMethod: so.measurementMethod||"", targetDate: so.targetDate||"",
+    msName: so.msName||so.kpiName||"", msTargetDate: so.msTargetDate||"",
+    deliverables: [],
+  })),
   scopeRevisionNotes:"",
   inScope:           strategy.inScope           || "",
-  outOfScope:       (strategy.outOfScope || [{item:"",reason:""}]).map(r=>({...r})),
   assumptions:       strategy.assumptions       || "",
-  milestones:       (strategy.milestones || []).map(m=>({...m, deliverableDesc:"", deliverableType:"", responsibleParty:""})),
   functionalReqs:   [{id:"FR-001",description:"",priority:"Mandatory",acceptance:""}],
   nonFunctionalReqs:[{id:"NFR-001",description:"",priority:"Mandatory",acceptance:""}],
-  rfpStatus:        "Draft",
-  rfpNotes:"",
+});
+
+// Factory for an RFP outcome (when added fresh at RFP stage)
+let _rfpOutcomeSeq = 1;
+const newRfpOutcome = (overrides={}) => ({
+  id: `O-${String(_rfpOutcomeSeq++).padStart(3,"0")}`,
+  outcome:"", source:"free",
+  kpiName:"", measurementMethod:"", targetDate:"",
+  msName:"", msTargetDate:"",
+  deliverables:[],
+  ...overrides,
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -455,8 +509,17 @@ function StrategyFormSections({section,setSection,form,setForm,readOnly}) {
   const setA = (k,i,f2,v) => setForm(f=>{const a=[...f[k]];a[i]={...a[i],[f2]:v};return{...f,[k]:a};});
   const add  = (k,t)       => setForm(f=>({...f,[k]:[...f[k],t]}));
   const rem  = (k,i)       => setForm(f=>({...f,[k]:f[k].filter((_,j)=>j!==i)}));
-  const togFw= fw          => set("frameworks",form.frameworks.includes(fw)?form.frameworks.filter(x=>x!==fw):[...form.frameworks,fw]);
   const setAns=(ck,qi,v)   => setForm(f=>({...f,answers:{...f.answers,[ck]:{...(f.answers[ck]||{}),[qi]:v}}}));
+  // Cyber strategic objectives multi-select toggle
+  const togObjective = obj => set("cisoPillars", (form.cisoPillars||[]).includes(obj) ? form.cisoPillars.filter(x=>x!==obj) : [...(form.cisoPillars||[]), obj]);
+  // Strategy outcome helpers
+  const addStratOutcome = (o)      => setForm(f=>({...f,strategyOutcomes:[...(f.strategyOutcomes||[]), o]}));
+  const setStratOutcome = (i,f2,v) => setForm(f=>{const a=[...f.strategyOutcomes];a[i]={...a[i],[f2]:v};return{...f,strategyOutcomes:a};});
+  const remStratOutcome = (i)      => setForm(f=>({...f,strategyOutcomes:f.strategyOutcomes.filter((_,j)=>j!==i)}));
+  const [outcomeMode,setOutcomeMode] = useState("predefined");
+  const [aiSuggestions,setAiSuggestions] = useState([]);
+  const [aiGenerated,setAiGenerated] = useState(false);
+  const [predefinedPick,setPredefinedPick] = useState("");
   const {score,filled,totalQ}=calcScore(form.answers);
   const initId=form.id||("CPM-"+new Date().getFullYear()+"-"+String(Math.floor(Math.random()*900)+100));
 
@@ -500,29 +563,112 @@ function StrategyFormSections({section,setSection,form,setForm,readOnly}) {
               <div><Lbl req={!readOnly}>Vision Statement</Lbl><Txt readOnly={readOnly} rows={4} placeholder="What does success look like?" value={form.visionStatement} onChange={v=>set("visionStatement",v)}/></div>
             </G>
             <div style={{height:14}}/>
-            <G cols={2} gap={16}>
-              <div><Lbl req={!readOnly}>Link to CISO Strategic Objective / Pillar</Lbl><Sel readOnly={readOnly} options={CPM_PILLARS} value={form.cisoPillar} onChange={v=>set("cisoPillar",v)} placeholder="Select pillar..."/></div>
-              <div><Lbl req={!readOnly}>Expected Business Outcome</Lbl><Inp readOnly={readOnly} placeholder="e.g. Reduce incidents by 80%" value={form.businessOutcome} onChange={v=>set("businessOutcome",v)}/></div>
-            </G>
-            <div style={{height:14}}/>
-            <Lbl>Framework Alignment</Lbl>
+            <Lbl req={!readOnly}>Link to Cyber Strategic Objectives</Lbl>
             {readOnly
-              ?<div style={{display:"flex",flexWrap:"wrap",gap:8}}>{(form.frameworks||[]).map(fw=><CBadge key={fw}>{fw}</CBadge>)}</div>
-              :<div style={{display:"flex",flexWrap:"wrap",gap:8}}>{CPM_FRAMEWORKS.map(fw=><button key={fw} onClick={()=>togFw(fw)} style={{padding:"5px 12px",borderRadius:4,fontSize:12,cursor:"pointer",fontFamily:"inherit",background:form.frameworks.includes(fw)?B.darkBlue:B.cardBg,color:form.frameworks.includes(fw)?"#FFFFFF":B.textMid,border:`1px solid ${form.frameworks.includes(fw)?B.darkBlue:B.border}`,fontWeight:form.frameworks.includes(fw)?700:400}}>{fw}</button>)}</div>}
-            <SLine title="KPIs & Success Metrics"/>
-            <table style={{width:"100%",borderCollapse:"collapse",marginBottom:4}}>
-              <thead><tr><TH w="30%">KPI Name</TH><TH w="15%">Baseline</TH><TH w="15%">Target</TH><TH>Measurement Method</TH>{!readOnly&&<TH w="30px"/>}</tr></thead>
-              <tbody>{form.kpis.map((r,i)=>(
-                <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
-                  <TD><Inp readOnly={readOnly} placeholder="e.g. MFA coverage rate" value={r.name} onChange={v=>setA("kpis",i,"name",v)}/></TD>
-                  <TD><Inp readOnly={readOnly} placeholder="e.g. 40%" value={r.baseline} onChange={v=>setA("kpis",i,"baseline",v)}/></TD>
-                  <TD><Inp readOnly={readOnly} placeholder="e.g. 95%" value={r.target} onChange={v=>setA("kpis",i,"target",v)}/></TD>
-                  <TD><Inp readOnly={readOnly} placeholder="e.g. Monthly audit" value={r.method} onChange={v=>setA("kpis",i,"method",v)}/></TD>
-                  {!readOnly&&<TD>{form.kpis.length>1&&<DelBtn onClick={()=>rem("kpis",i)}/>}</TD>}
-                </tr>
-              ))}</tbody>
-            </table>
-            {!readOnly&&<AddBtn onClick={()=>add("kpis",{name:"",baseline:"",target:"",method:""})} label="Add KPI"/>}
+              ?<div style={{display:"flex",flexWrap:"wrap",gap:8}}>{(form.cisoPillars||[]).length>0?form.cisoPillars.map(o=><CBadge key={o}>{o}</CBadge>):<span style={{fontSize:12,color:B.textMuted}}>—</span>}</div>
+              :<div style={{display:"flex",flexWrap:"wrap",gap:8}}>{CPM_PILLARS.map(obj=><button key={obj} onClick={()=>togObjective(obj)} style={{padding:"6px 14px",borderRadius:4,fontSize:12,cursor:"pointer",fontFamily:"inherit",background:(form.cisoPillars||[]).includes(obj)?B.darkBlue:B.cardBg,color:(form.cisoPillars||[]).includes(obj)?"#FFFFFF":B.textMid,border:`1px solid ${(form.cisoPillars||[]).includes(obj)?B.darkBlue:B.border}`,fontWeight:(form.cisoPillars||[]).includes(obj)?700:400}}>{obj}</button>)}</div>}
+            <div style={{fontSize:11,color:B.textMuted,marginTop:6}}>{readOnly?"":"Select one or more strategic objectives this initiative supports."}</div>
+
+            <SLine title="Expected Outcomes & Value Committed"/>
+            <div style={{background:B.activeBg,border:`1px solid ${B.lightBlue}`,borderLeft:`4px solid ${B.darkBlue}`,
+              borderRadius:4,padding:"10px 14px",marginBottom:16,fontSize:12,color:B.textMid}}>
+              Define the measurable outcomes this initiative will deliver. Each outcome has <strong>one Value Committed (KPI)</strong> and a high-level milestone. These carry forward and are refined at the RFP and contracting stages.
+            </div>
+
+            {/* Mode selector (hidden in read-only) */}
+            {!readOnly&&(
+              <div style={{display:"flex",gap:8,marginBottom:16}}>
+                {[{id:"ai",label:"✦ AI Suggested"},{id:"predefined",label:"☰ Predefined List"},{id:"free",label:"✎ Free Text"}].map(m=>(
+                  <button key={m.id} onClick={()=>setOutcomeMode(m.id)} style={{padding:"8px 16px",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",background:outcomeMode===m.id?B.darkBlue:B.cardBg,color:outcomeMode===m.id?"#FFFFFF":B.textMid,border:`1px solid ${outcomeMode===m.id?B.darkBlue:B.border}`}}>{m.label}</button>
+                ))}
+              </div>
+            )}
+
+            {/* AI mode */}
+            {!readOnly&&outcomeMode==="ai"&&(
+              <div style={{background:B.pageBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"16px 18px",marginBottom:18}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                  <div style={{fontSize:12,fontWeight:700,color:B.deepBlue}}>AI-Suggested Outcomes</div>
+                  <CBadge color={B.midBlue} bg={B.midBlue+"20"}>BASED ON VISION</CBadge>
+                </div>
+                <div style={{fontSize:12,color:B.textMid,marginBottom:14,lineHeight:1.5}}>Generate measurable outcome suggestions from the vision statement above. Review each and add the ones that fit.</div>
+                <button onClick={()=>{setAiSuggestions(AI_OUTCOME_SUGGESTIONS);setAiGenerated(true);}} style={{background:B.midBlue,border:"none",color:"#FFFFFF",borderRadius:5,padding:"9px 18px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:aiGenerated?16:0}}>✦ Generate Outcomes from Vision</button>
+                {aiGenerated&&(
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {aiSuggestions.length===0?(
+                      <div style={{fontSize:12,color:B.textMuted,fontStyle:"italic"}}>All suggestions added. Regenerate for more.</div>
+                    ):aiSuggestions.map((s,si)=>(
+                      <div key={si} style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:5,padding:"12px 14px",display:"flex",alignItems:"flex-start",gap:12}}>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:13,fontWeight:600,color:B.textDark,marginBottom:4}}>{s.text}</div>
+                          <div style={{fontSize:11,color:B.textMuted}}>Suggested KPI: <strong style={{color:B.darkBlue}}>{s.kpi}</strong> · Method: {s.method}</div>
+                        </div>
+                        <button onClick={()=>{addStratOutcome(newStrategyOutcome({outcome:s.text,source:"ai",kpiName:s.kpi,measurementMethod:s.method,msName:s.text}));setAiSuggestions(prev=>prev.filter((_,j)=>j!==si));}} style={{background:B.greenLight,border:`1px solid ${B.green}40`,color:B.green,borderRadius:4,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>+ Add</button>
+                        <button onClick={()=>setAiSuggestions(prev=>prev.filter((_,j)=>j!==si))} style={{background:"none",border:`1px solid ${B.border}`,color:B.textMuted,borderRadius:4,padding:"6px 10px",fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>Dismiss</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Predefined mode */}
+            {!readOnly&&outcomeMode==="predefined"&&(
+              <div style={{background:B.pageBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"16px 18px",marginBottom:18}}>
+                <div style={{fontSize:12,fontWeight:700,color:B.deepBlue,marginBottom:12}}>Select from Predefined Outcomes</div>
+                <div style={{display:"flex",gap:10,alignItems:"flex-end"}}>
+                  <div style={{flex:1}}>
+                    <Lbl>Outcome</Lbl>
+                    <select value={predefinedPick} onChange={e=>setPredefinedPick(e.target.value)} style={{width:"100%",boxSizing:"border-box",border:`1px solid ${B.border}`,borderRadius:4,padding:"8px 10px",fontSize:13,color:predefinedPick?B.textDark:B.textMuted,background:B.inputBg,fontFamily:"inherit",outline:"none",cursor:"pointer"}}>
+                      <option value="" disabled>Select an outcome...</option>
+                      <optgroup label="Cyber-Specific">{PREDEFINED_OUTCOMES.filter(o=>o.category==="Cyber").map((o,i)=><option key={i} value={o.text}>{o.text}</option>)}</optgroup>
+                      <optgroup label="General Business">{PREDEFINED_OUTCOMES.filter(o=>o.category==="Business").map((o,i)=><option key={i} value={o.text}>{o.text}</option>)}</optgroup>
+                    </select>
+                  </div>
+                  <button onClick={()=>{if(predefinedPick){addStratOutcome(newStrategyOutcome({outcome:predefinedPick,source:"predefined",msName:predefinedPick}));setPredefinedPick("");}}} style={{background:B.darkBlue,border:"none",color:"#FFFFFF",borderRadius:5,padding:"9px 18px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>+ Add Outcome</button>
+                </div>
+              </div>
+            )}
+
+            {/* Free text mode */}
+            {!readOnly&&outcomeMode==="free"&&(
+              <div style={{background:B.pageBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"16px 18px",marginBottom:18}}>
+                <div style={{fontSize:12,fontWeight:700,color:B.deepBlue,marginBottom:12}}>Add Your Own Outcome</div>
+                <button onClick={()=>addStratOutcome(newStrategyOutcome({source:"free"}))} style={{background:B.darkBlue,border:"none",color:"#FFFFFF",borderRadius:5,padding:"9px 18px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add Blank Outcome</button>
+              </div>
+            )}
+
+            {/* Outcomes list */}
+            {(form.strategyOutcomes||[]).length===0?(
+              <div style={{padding:"32px 20px",textAlign:"center",background:B.pageBg,borderRadius:6,border:`1px dashed ${B.border}`}}>
+                <div style={{fontSize:13,color:B.textMuted,marginBottom:6}}>No outcomes defined yet.</div>
+                {!readOnly&&<div style={{fontSize:11,color:B.textMuted}}>Use one of the three modes above to add measurable outcomes.</div>}
+              </div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                {form.strategyOutcomes.map((o,i)=>(
+                  <div key={o.id||i} style={{border:`1px solid ${B.border}`,borderRadius:6,overflow:"hidden",borderLeft:`4px solid ${B.darkBlue}`}}>
+                    <div style={{background:B.pageBg,padding:"10px 16px",display:"flex",alignItems:"center",gap:10,borderBottom:`1px solid ${B.borderLight}`}}>
+                      <div style={{fontSize:11,fontFamily:"monospace",fontWeight:700,color:B.darkBlue}}>{o.id||`SO-${String(i+1).padStart(3,"0")}`}</div>
+                      <CBadge color={o.source==="ai"?B.midBlue:o.source==="predefined"?B.darkBlue:B.textMuted} bg={(o.source==="ai"?B.midBlue:o.source==="predefined"?B.darkBlue:B.textMuted)+"20"}>{o.source==="ai"?"✦ AI":o.source==="predefined"?"PREDEFINED":"FREE TEXT"}</CBadge>
+                      <div style={{flex:1}}/>
+                      {!readOnly&&<DelBtn onClick={()=>remStratOutcome(i)}/>}
+                    </div>
+                    <div style={{padding:"14px 16px"}}>
+                      <Lbl req={!readOnly}>Measurable Outcome</Lbl>
+                      <Inp readOnly={readOnly} placeholder="e.g. Achieve 95% MFA coverage across all users within 6 months" value={o.outcome} onChange={v=>setStratOutcome(i,"outcome",v)}/>
+                      <div style={{height:12}}/>
+                      <div style={{fontSize:10,fontWeight:700,color:B.deepBlue,letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:8}}>Value Committed (KPI)</div>
+                      <G cols={3} gap={12}>
+                        <div><Lbl req={!readOnly}>KPI Name</Lbl><Inp readOnly={readOnly} placeholder="e.g. MFA coverage (%)" value={o.kpiName} onChange={v=>setStratOutcome(i,"kpiName",v)}/></div>
+                        <div><Lbl req={!readOnly}>Measurement Method</Lbl><Inp readOnly={readOnly} placeholder="e.g. Monthly IAM audit" value={o.measurementMethod} onChange={v=>setStratOutcome(i,"measurementMethod",v)}/></div>
+                        <div><Lbl req={!readOnly}>Target Date</Lbl><Inp readOnly={readOnly} type="date" value={o.targetDate} onChange={v=>setStratOutcome(i,"targetDate",v)}/></div>
+                      </G>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -531,58 +677,42 @@ function StrategyFormSections({section,setSection,form,setForm,readOnly}) {
             <SLine title="Scope Definition"/>
             <div><Lbl req={!readOnly}>In Scope Description</Lbl><Txt readOnly={readOnly} rows={4} placeholder="Describe clearly what this initiative will deliver." value={form.inScope} onChange={v=>set("inScope",v)}/></div>
             <div style={{height:14}}/>
-            <Lbl>Out of Scope / Exclusions</Lbl>
-            <table style={{width:"100%",borderCollapse:"collapse",marginBottom:4}}>
-              <thead><tr><TH w="45%">Exclusion Item</TH><TH>Reason / Rationale</TH>{!readOnly&&<TH w="30px"/>}</tr></thead>
-              <tbody>{form.outOfScope.map((r,i)=>(
-                <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
-                  <TD><Inp readOnly={readOnly} placeholder="What is excluded..." value={r.item} onChange={v=>setA("outOfScope",i,"item",v)}/></TD>
-                  <TD><Inp readOnly={readOnly} placeholder="Why it is excluded..." value={r.reason} onChange={v=>setA("outOfScope",i,"reason",v)}/></TD>
-                  {!readOnly&&<TD>{form.outOfScope.length>1&&<DelBtn onClick={()=>rem("outOfScope",i)}/>}</TD>}
-                </tr>
-              ))}</tbody>
-            </table>
-            {!readOnly&&<AddBtn onClick={()=>add("outOfScope",{item:"",reason:""})} label="Add Exclusion"/>}
-            <div style={{height:14}}/>
-            <div><Lbl>Assumptions</Lbl><Txt readOnly={readOnly} rows={2} placeholder="Conditions assumed to be true for this initiative to proceed." value={form.assumptions} onChange={v=>set("assumptions",v)}/></div>
-            <SLine title="Key Milestones & Deliverables"/>
-            <table style={{width:"100%",borderCollapse:"collapse",marginBottom:4}}>
-              <thead><tr><TH w="35%">Milestone Name</TH><TH w="18%">Target Date</TH><TH>Linked Deliverable(s)</TH>{!readOnly&&<TH w="30px"/>}</tr></thead>
-              <tbody>{form.milestones.map((r,i)=>(
-                <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
-                  <TD><Inp readOnly={readOnly} placeholder="e.g. Discovery complete" value={r.name} onChange={v=>setA("milestones",i,"name",v)}/></TD>
-                  <TD><Inp readOnly={readOnly} type="date" value={r.date} onChange={v=>setA("milestones",i,"date",v)}/></TD>
-                  <TD><Inp readOnly={readOnly} placeholder="e.g. Gap Analysis Report" value={r.deliverable} onChange={v=>setA("milestones",i,"deliverable",v)}/></TD>
-                  {!readOnly&&<TD>{form.milestones.length>1&&<DelBtn onClick={()=>rem("milestones",i)}/>}</TD>}
-                </tr>
-              ))}</tbody>
-            </table>
-            {!readOnly&&<AddBtn onClick={()=>add("milestones",{name:"",date:"",deliverable:""})} label="Add Milestone"/>}
-            <SLine title="Key Stakeholders & Affected Teams"/>
-            <table style={{width:"100%",borderCollapse:"collapse",marginBottom:4}}>
-              <thead><tr><TH w="45%">Stakeholder / Team</TH><TH>Role / Involvement</TH>{!readOnly&&<TH w="30px"/>}</tr></thead>
-              <tbody>{form.stakeholders.map((r,i)=>(
-                <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
-                  <TD><Inp readOnly={readOnly} placeholder="e.g. IT Operations" value={r.name} onChange={v=>setA("stakeholders",i,"name",v)}/></TD>
-                  <TD><Inp readOnly={readOnly} placeholder="e.g. Impacted, Approver" value={r.role} onChange={v=>setA("stakeholders",i,"role",v)}/></TD>
-                  {!readOnly&&<TD>{form.stakeholders.length>1&&<DelBtn onClick={()=>rem("stakeholders",i)}/>}</TD>}
-                </tr>
-              ))}</tbody>
-            </table>
-            {!readOnly&&<AddBtn onClick={()=>add("stakeholders",{name:"",role:""})} label="Add Stakeholder"/>}
-            <SLine title="Integration Touchpoints"/>
-            <table style={{width:"100%",borderCollapse:"collapse",marginBottom:4}}>
-              <thead><tr><TH w="28%">Related Initiative</TH><TH w="30%">Nature of Integration</TH><TH>Risk if Misaligned</TH>{!readOnly&&<TH w="30px"/>}</tr></thead>
-              <tbody>{form.integrations.map((r,i)=>(
-                <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
-                  <TD><Inp readOnly={readOnly} placeholder="Initiative name..." value={r.initiative} onChange={v=>setA("integrations",i,"initiative",v)}/></TD>
-                  <TD><Inp readOnly={readOnly} placeholder="e.g. Shared data feed" value={r.nature} onChange={v=>setA("integrations",i,"nature",v)}/></TD>
-                  <TD><Inp readOnly={readOnly} placeholder="e.g. Scope gap" value={r.risk} onChange={v=>setA("integrations",i,"risk",v)}/></TD>
-                  {!readOnly&&<TD>{form.integrations.length>1&&<DelBtn onClick={()=>rem("integrations",i)}/>}</TD>}
-                </tr>
-              ))}</tbody>
-            </table>
-            {!readOnly&&<AddBtn onClick={()=>add("integrations",{initiative:"",nature:"",risk:""})} label="Add Integration"/>}
+            <div><Lbl>Assumptions</Lbl><Txt readOnly={readOnly} rows={3} placeholder="Conditions assumed to be true for this initiative to proceed." value={form.assumptions} onChange={v=>set("assumptions",v)}/></div>
+
+            <SLine title="Milestones Mapped to Outcomes"/>
+            <div style={{background:B.activeBg,border:`1px solid ${B.lightBlue}`,borderLeft:`4px solid ${B.darkBlue}`,
+              borderRadius:4,padding:"10px 14px",marginBottom:16,fontSize:12,color:B.textMid}}>
+              Each outcome and its Value Committed (KPI) has one high-level milestone. Set the milestone name and indicative target date. Detailed dates, weight, and deliverables are added at the contracting stage.
+            </div>
+            {(form.strategyOutcomes||[]).length===0?(
+              <div style={{padding:"28px 20px",textAlign:"center",background:B.pageBg,borderRadius:6,border:`1px dashed ${B.border}`}}>
+                <div style={{fontSize:13,color:B.textMuted,marginBottom:6}}>No outcomes defined yet.</div>
+                {!readOnly&&<div style={{fontSize:11,color:B.textMuted}}>Add outcomes in the <strong>Strategic Vision</strong> section first — each one gets a milestone here.</div>}
+              </div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                {form.strategyOutcomes.map((o,i)=>(
+                  <div key={o.id||i} style={{border:`1px solid ${B.border}`,borderRadius:6,overflow:"hidden"}}>
+                    <div style={{background:B.deepBlue,padding:"10px 16px"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+                        <CBadge color="#FFFFFF" bg="#FFFFFF25">MILESTONE {i+1}</CBadge>
+                        <div style={{color:"#FFFFFF50",fontSize:14}}>↔</div>
+                        <CBadge color="#FFFFFF" bg="#FFFFFF25">KPI: {o.kpiName||"(unnamed)"}</CBadge>
+                        <div style={{flex:1}}/>
+                        <div style={{color:B.headerText,fontSize:11,fontFamily:"monospace"}}>{o.id||`SO-${String(i+1).padStart(3,"0")}`}</div>
+                      </div>
+                      <div style={{fontSize:11,color:B.headerText,lineHeight:1.5}}>Outcome: {o.outcome||"(not yet defined)"}</div>
+                    </div>
+                    <div style={{padding:"14px 16px"}}>
+                      <G cols={2} gap={12}>
+                        <div><Lbl req={!readOnly}>Milestone Name</Lbl><Inp readOnly={readOnly} placeholder="e.g. MFA rollout complete" value={o.msName} onChange={v=>setStratOutcome(i,"msName",v)}/></div>
+                        <div><Lbl req={!readOnly}>Indicative Target Date</Lbl><Inp readOnly={readOnly} type="date" value={o.msTargetDate} onChange={v=>setStratOutcome(i,"msTargetDate",v)}/></div>
+                      </G>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -674,7 +804,7 @@ function StrategyFormSections({section,setSection,form,setForm,readOnly}) {
                 {label:"Initiative",value:form.name||"—"},
                 {label:"Domain",value:form.domain||"—"},
                 {label:"Owner",value:form.owner||"—"},
-                {label:"CISO Pillar",value:form.cisoPillar||"—"},
+                {label:"Objectives",value:(form.cisoPillars||[]).length>0?`${form.cisoPillars.length} linked`:"—"},
                 {label:"Est. Budget (USD)",value:form.budget?`$${Number(form.budget).toLocaleString()}`:"—",color:B.darkBlue},
                 {label:"Priority Score",value:filled>0?`${score} / 100`:"Not scored",color:filled>0?scoreColor(score):B.textMuted},
               ].map((item,i)=>(
@@ -727,13 +857,27 @@ function RFPFormSections({section,setSection,rfp,setRfp,strategy,readOnly}) {
   const setA = (k,i,f2,v) => setRfp(f=>{const a=[...f[k]];a[i]={...a[i],[f2]:v};return{...f,[k]:a};});
   const add  = (k,t)       => setRfp(f=>({...f,[k]:[...f[k],t]}));
   const rem  = (k,i)       => setRfp(f=>({...f,[k]:f[k].filter((_,j)=>j!==i)}));
-  const togFw= fw          => set("frameworks",rfp.frameworks.includes(fw)?rfp.frameworks.filter(x=>x!==fw):[...rfp.frameworks,fw]);
+  // Cyber strategic objectives multi-select toggle
+  const togObjective = obj => set("cisoPillars", (rfp.cisoPillars||[]).includes(obj) ? rfp.cisoPillars.filter(x=>x!==obj) : [...(rfp.cisoPillars||[]), obj]);
+  // Outcome helpers
+  const addOutcome    = (o)      => setRfp(f=>({...f,outcomes:[...(f.outcomes||[]), o]}));
+  const setOutcome    = (i,f2,v) => setRfp(f=>{const a=[...f.outcomes];a[i]={...a[i],[f2]:v};return{...f,outcomes:a};});
+  const remOutcome    = (i)      => setRfp(f=>({...f,outcomes:f.outcomes.filter((_,j)=>j!==i)}));
+  // Nested deliverable helpers (operate on outcomes[oi].deliverables — name + type only at RFP)
+  const addDeliv      = (oi)        => setRfp(f=>{const a=[...f.outcomes];a[oi]={...a[oi],deliverables:[...(a[oi].deliverables||[]), {name:"",type:""}]};return{...f,outcomes:a};});
+  const setDeliv      = (oi,di,f2,v)=>setRfp(f=>{const a=[...f.outcomes];const d=[...a[oi].deliverables];d[di]={...d[di],[f2]:v};a[oi]={...a[oi],deliverables:d};return{...f,outcomes:a};});
+  const remDeliv      = (oi,di)     => setRfp(f=>{const a=[...f.outcomes];a[oi]={...a[oi],deliverables:a[oi].deliverables.filter((_,j)=>j!==di)};return{...f,outcomes:a};});
   const [reqTab,setReqTab] = useState("functional");
+  const [outcomeMode,setOutcomeMode] = useState("predefined");
+  const [aiSuggestions,setAiSuggestions] = useState([]);
+  const [aiGenerated,setAiGenerated] = useState(false);
+  const [predefinedPick,setPredefinedPick] = useState("");
 
   return(
     <div style={{flex:1,overflowY:"auto",padding:"24px 28px 48px"}}>
       <div style={{maxWidth:1100,margin:"0 auto"}}>
 
+        {/* ── SECTION 0: Strategy Reference (read-only) ── */}
         {section===0&&(
           <div>
             <div style={{background:B.deepBlue,borderRadius:6,padding:"20px 24px",marginBottom:16}}>
@@ -744,7 +888,7 @@ function RFPFormSections({section,setSection,rfp,setRfp,strategy,readOnly}) {
                   {label:"Initiative ID",   value:strategy.id},
                   {label:"Domain",          value:strategy.domain},
                   {label:"Initiative Owner",value:strategy.owner},
-                  {label:"CISO Pillar",     value:strategy.pillar||strategy.cisoPillar},
+                  {label:"Objectives",     value:(strategy.cisoPillars&&strategy.cisoPillars.length>0)?strategy.cisoPillars.join(", "):(strategy.pillar||strategy.cisoPillar)},
                   {label:"Priority Score",  value:strategy.score, color:scoreColor(strategy.score||0)},
                   {label:"Est. Budget",     value:strategy.budget},
                   {label:"Submitted",       value:strategy.submitted},
@@ -769,6 +913,7 @@ function RFPFormSections({section,setSection,rfp,setRfp,strategy,readOnly}) {
           </div>
         )}
 
+        {/* ── SECTION 1: Vision & Value ── */}
         {section===1&&(
           <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px"}}>
             <SLine title="Vision & Strategic Alignment — Review & Refine"/>
@@ -780,29 +925,112 @@ function RFPFormSections({section,setSection,rfp,setRfp,strategy,readOnly}) {
               <div><Lbl req>Vision Statement</Lbl><Txt rows={4} placeholder="What does success look like?" value={rfp.visionStatement} onChange={v=>set("visionStatement",v)}/></div>
             </G>
             <div style={{height:14}}/>
-            <div><Lbl req>Expected Business Outcome</Lbl><Inp placeholder="e.g. Reduce incidents by 80%" value={rfp.businessOutcome} onChange={v=>set("businessOutcome",v)}/></div>
-            <div style={{height:14}}/>
-            <Lbl>Framework Alignment</Lbl>
-            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:6}}>
-              {CPM_FRAMEWORKS.map(fw=><button key={fw} onClick={()=>togFw(fw)} style={{padding:"5px 12px",borderRadius:4,fontSize:12,cursor:"pointer",fontFamily:"inherit",background:rfp.frameworks.includes(fw)?B.darkBlue:B.cardBg,color:rfp.frameworks.includes(fw)?"#FFFFFF":B.textMid,border:`1px solid ${rfp.frameworks.includes(fw)?B.darkBlue:B.border}`,fontWeight:rfp.frameworks.includes(fw)?700:400}}>{fw}</button>)}
+            <Lbl req>Link to Cyber Strategic Objectives</Lbl>
+            <div style={{display:"flex",flexWrap:"wrap",gap:8}}>{CPM_PILLARS.map(obj=><button key={obj} onClick={()=>togObjective(obj)} style={{padding:"6px 14px",borderRadius:4,fontSize:12,cursor:"pointer",fontFamily:"inherit",background:(rfp.cisoPillars||[]).includes(obj)?B.darkBlue:B.cardBg,color:(rfp.cisoPillars||[]).includes(obj)?"#FFFFFF":B.textMid,border:`1px solid ${(rfp.cisoPillars||[]).includes(obj)?B.darkBlue:B.border}`,fontWeight:(rfp.cisoPillars||[]).includes(obj)?700:400}}>{obj}</button>)}</div>
+            <div style={{fontSize:11,color:B.textMuted,marginTop:6}}>Select one or more strategic objectives this initiative supports.</div>
+
+            <SLine title="Expected Outcomes & Value Committed"/>
+            <div style={{background:B.activeBg,border:`1px solid ${B.lightBlue}`,borderLeft:`4px solid ${B.darkBlue}`,
+              borderRadius:4,padding:"10px 14px",marginBottom:16,fontSize:12,color:B.textMid}}>
+              Outcomes are pre-filled from the Strategy phase. Refine them and their KPIs, or add new ones. Each outcome has <strong>one Value Committed (KPI)</strong>. Milestones and deliverables for each outcome are set in the next section.
             </div>
-            <SLine title="KPIs & Success Metrics — Review & Refine"/>
-            <table style={{width:"100%",borderCollapse:"collapse",marginBottom:4}}>
-              <thead><tr><TH w="30%">KPI Name</TH><TH w="15%">Baseline</TH><TH w="15%">Target</TH><TH>Measurement Method</TH><TH w="30px"/></tr></thead>
-              <tbody>{rfp.kpis.map((r,i)=>(
-                <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
-                  <TD><Inp placeholder="e.g. MFA coverage rate" value={r.name} onChange={v=>setA("kpis",i,"name",v)}/></TD>
-                  <TD><Inp placeholder="e.g. 40%" value={r.baseline} onChange={v=>setA("kpis",i,"baseline",v)}/></TD>
-                  <TD><Inp placeholder="e.g. 95%" value={r.target} onChange={v=>setA("kpis",i,"target",v)}/></TD>
-                  <TD><Inp placeholder="e.g. Monthly audit" value={r.method} onChange={v=>setA("kpis",i,"method",v)}/></TD>
-                  <TD>{rfp.kpis.length>1&&<DelBtn onClick={()=>rem("kpis",i)}/>}</TD>
-                </tr>
-              ))}</tbody>
-            </table>
-            <AddBtn onClick={()=>add("kpis",{name:"",baseline:"",target:"",method:""})} label="Add KPI"/>
+
+            {/* Mode selector */}
+            <div style={{display:"flex",gap:8,marginBottom:16}}>
+              {[{id:"ai",label:"✦ AI Suggested"},{id:"predefined",label:"☰ Predefined List"},{id:"free",label:"✎ Free Text"}].map(m=>(
+                <button key={m.id} onClick={()=>setOutcomeMode(m.id)} style={{padding:"8px 16px",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",background:outcomeMode===m.id?B.darkBlue:B.cardBg,color:outcomeMode===m.id?"#FFFFFF":B.textMid,border:`1px solid ${outcomeMode===m.id?B.darkBlue:B.border}`}}>{m.label}</button>
+              ))}
+            </div>
+
+            {/* AI mode */}
+            {outcomeMode==="ai"&&(
+              <div style={{background:B.pageBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"16px 18px",marginBottom:18}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                  <div style={{fontSize:12,fontWeight:700,color:B.deepBlue}}>AI-Suggested Outcomes</div>
+                  <CBadge color={B.midBlue} bg={B.midBlue+"20"}>BASED ON VISION</CBadge>
+                </div>
+                <div style={{fontSize:12,color:B.textMid,marginBottom:14,lineHeight:1.5}}>Generate measurable outcome suggestions from the vision statement above. Review each and add the ones that fit.</div>
+                <button onClick={()=>{setAiSuggestions(AI_OUTCOME_SUGGESTIONS);setAiGenerated(true);}} style={{background:B.midBlue,border:"none",color:"#FFFFFF",borderRadius:5,padding:"9px 18px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:aiGenerated?16:0}}>✦ Generate Outcomes from Vision</button>
+                {aiGenerated&&(
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {aiSuggestions.length===0?(
+                      <div style={{fontSize:12,color:B.textMuted,fontStyle:"italic"}}>All suggestions added. Regenerate for more.</div>
+                    ):aiSuggestions.map((s,si)=>(
+                      <div key={si} style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:5,padding:"12px 14px",display:"flex",alignItems:"flex-start",gap:12}}>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:13,fontWeight:600,color:B.textDark,marginBottom:4}}>{s.text}</div>
+                          <div style={{fontSize:11,color:B.textMuted}}>Suggested KPI: <strong style={{color:B.darkBlue}}>{s.kpi}</strong> · Method: {s.method}</div>
+                        </div>
+                        <button onClick={()=>{addOutcome(newRfpOutcome({outcome:s.text,source:"ai",kpiName:s.kpi,measurementMethod:s.method,msName:s.text}));setAiSuggestions(prev=>prev.filter((_,j)=>j!==si));}} style={{background:B.greenLight,border:`1px solid ${B.green}40`,color:B.green,borderRadius:4,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>+ Add</button>
+                        <button onClick={()=>setAiSuggestions(prev=>prev.filter((_,j)=>j!==si))} style={{background:"none",border:`1px solid ${B.border}`,color:B.textMuted,borderRadius:4,padding:"6px 10px",fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>Dismiss</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Predefined mode */}
+            {outcomeMode==="predefined"&&(
+              <div style={{background:B.pageBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"16px 18px",marginBottom:18}}>
+                <div style={{fontSize:12,fontWeight:700,color:B.deepBlue,marginBottom:12}}>Select from Predefined Outcomes</div>
+                <div style={{display:"flex",gap:10,alignItems:"flex-end"}}>
+                  <div style={{flex:1}}>
+                    <Lbl>Outcome</Lbl>
+                    <select value={predefinedPick} onChange={e=>setPredefinedPick(e.target.value)} style={{width:"100%",boxSizing:"border-box",border:`1px solid ${B.border}`,borderRadius:4,padding:"8px 10px",fontSize:13,color:predefinedPick?B.textDark:B.textMuted,background:B.inputBg,fontFamily:"inherit",outline:"none",cursor:"pointer"}}>
+                      <option value="" disabled>Select an outcome...</option>
+                      <optgroup label="Cyber-Specific">{PREDEFINED_OUTCOMES.filter(o=>o.category==="Cyber").map((o,i)=><option key={i} value={o.text}>{o.text}</option>)}</optgroup>
+                      <optgroup label="General Business">{PREDEFINED_OUTCOMES.filter(o=>o.category==="Business").map((o,i)=><option key={i} value={o.text}>{o.text}</option>)}</optgroup>
+                    </select>
+                  </div>
+                  <button onClick={()=>{if(predefinedPick){addOutcome(newRfpOutcome({outcome:predefinedPick,source:"predefined",msName:predefinedPick}));setPredefinedPick("");}}} style={{background:B.darkBlue,border:"none",color:"#FFFFFF",borderRadius:5,padding:"9px 18px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>+ Add Outcome</button>
+                </div>
+              </div>
+            )}
+
+            {/* Free text mode */}
+            {outcomeMode==="free"&&(
+              <div style={{background:B.pageBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"16px 18px",marginBottom:18}}>
+                <div style={{fontSize:12,fontWeight:700,color:B.deepBlue,marginBottom:12}}>Add Your Own Outcome</div>
+                <button onClick={()=>addOutcome(newRfpOutcome({source:"free"}))} style={{background:B.darkBlue,border:"none",color:"#FFFFFF",borderRadius:5,padding:"9px 18px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add Blank Outcome</button>
+              </div>
+            )}
+
+            {/* Outcomes list */}
+            {(rfp.outcomes||[]).length===0?(
+              <div style={{padding:"32px 20px",textAlign:"center",background:B.pageBg,borderRadius:6,border:`1px dashed ${B.border}`}}>
+                <div style={{fontSize:13,color:B.textMuted,marginBottom:6}}>No outcomes defined yet.</div>
+                <div style={{fontSize:11,color:B.textMuted}}>Use one of the three modes above to add measurable outcomes.</div>
+              </div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                {rfp.outcomes.map((o,i)=>(
+                  <div key={o.id||i} style={{border:`1px solid ${B.border}`,borderRadius:6,overflow:"hidden",borderLeft:`4px solid ${B.darkBlue}`}}>
+                    <div style={{background:B.pageBg,padding:"10px 16px",display:"flex",alignItems:"center",gap:10,borderBottom:`1px solid ${B.borderLight}`}}>
+                      <div style={{fontSize:11,fontFamily:"monospace",fontWeight:700,color:B.darkBlue}}>{o.id||`O-${String(i+1).padStart(3,"0")}`}</div>
+                      <CBadge color={o.source==="ai"?B.midBlue:o.source==="predefined"?B.darkBlue:B.textMuted} bg={(o.source==="ai"?B.midBlue:o.source==="predefined"?B.darkBlue:B.textMuted)+"20"}>{o.source==="ai"?"✦ AI":o.source==="predefined"?"PREDEFINED":"FREE TEXT"}</CBadge>
+                      <div style={{flex:1}}/>
+                      <DelBtn onClick={()=>remOutcome(i)}/>
+                    </div>
+                    <div style={{padding:"14px 16px"}}>
+                      <Lbl req>Measurable Outcome</Lbl>
+                      <Inp placeholder="e.g. Achieve 95% MFA coverage across all users within 6 months" value={o.outcome} onChange={v=>setOutcome(i,"outcome",v)}/>
+                      <div style={{height:12}}/>
+                      <div style={{fontSize:10,fontWeight:700,color:B.deepBlue,letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:8}}>Value Committed (KPI)</div>
+                      <G cols={3} gap={12}>
+                        <div><Lbl req>KPI Name</Lbl><Inp placeholder="e.g. MFA coverage (%)" value={o.kpiName} onChange={v=>setOutcome(i,"kpiName",v)}/></div>
+                        <div><Lbl req>Measurement Method</Lbl><Inp placeholder="e.g. Monthly IAM audit" value={o.measurementMethod} onChange={v=>setOutcome(i,"measurementMethod",v)}/></div>
+                        <div><Lbl req>Target Date</Lbl><Inp type="date" value={o.targetDate} onChange={v=>setOutcome(i,"targetDate",v)}/></div>
+                      </G>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
+        {/* ── SECTION 2: Scope Revision ── */}
         {section===2&&(
           <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px"}}>
             <SLine title="Scope Revision"/>
@@ -815,61 +1043,83 @@ function RFPFormSections({section,setSection,rfp,setRfp,strategy,readOnly}) {
             </div>
             <div><Lbl req>Updated In-Scope Description</Lbl><Txt rows={4} placeholder="Updated scope description for the RFP stage." value={rfp.inScope} onChange={v=>set("inScope",v)}/></div>
             <div style={{height:14}}/>
-            <Lbl>Updated Out of Scope / Exclusions</Lbl>
-            <table style={{width:"100%",borderCollapse:"collapse",marginBottom:4}}>
-              <thead><tr><TH w="45%">Exclusion Item</TH><TH>Reason / Rationale</TH><TH w="30px"/></tr></thead>
-              <tbody>{rfp.outOfScope.map((r,i)=>(
-                <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
-                  <TD><Inp placeholder="What is excluded..." value={r.item} onChange={v=>setA("outOfScope",i,"item",v)}/></TD>
-                  <TD><Inp placeholder="Why it is excluded..." value={r.reason} onChange={v=>setA("outOfScope",i,"reason",v)}/></TD>
-                  <TD>{rfp.outOfScope.length>1&&<DelBtn onClick={()=>rem("outOfScope",i)}/>}</TD>
-                </tr>
-              ))}</tbody>
-            </table>
-            <AddBtn onClick={()=>add("outOfScope",{item:"",reason:""})} label="Add Exclusion"/>
-            <div style={{height:14}}/>
-            <div><Lbl>Updated Assumptions</Lbl><Txt rows={2} placeholder="Updated assumptions for this RFP stage." value={rfp.assumptions} onChange={v=>set("assumptions",v)}/></div>
+            <div><Lbl>Updated Assumptions</Lbl><Txt rows={3} placeholder="Updated assumptions for this RFP stage." value={rfp.assumptions} onChange={v=>set("assumptions",v)}/></div>
           </div>
         )}
 
+        {/* ── SECTION 3: Milestones & Deliverables ── */}
         {section===3&&(
           <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px"}}>
-            <SLine title="Refined Milestones & Deliverables"/>
-            <div style={{background:B.amberLight,border:`1px solid ${B.amber}40`,borderRadius:4,padding:"10px 14px",marginBottom:18,fontSize:12,color:B.amber}}>
-              Pre-filled from strategy. Add full detail — deliverable descriptions, types, and responsible parties are required at this stage.
+            <SLine title="Milestones & Deliverables"/>
+            <div style={{background:B.activeBg,border:`1px solid ${B.lightBlue}`,borderLeft:`4px solid ${B.darkBlue}`,
+              borderRadius:4,padding:"10px 14px",marginBottom:16,fontSize:12,color:B.textMid}}>
+              One milestone maps <strong>1-to-1</strong> to each outcome and its KPI. Set the milestone name and indicative target date, then list the deliverables (name + type) expected under it. Detailed dates, QA reviewers, and approvers are added at the contracting stage.
             </div>
-            <table style={{width:"100%",borderCollapse:"collapse",marginBottom:4}}>
-              <thead>
-                <tr>
-                  <TH w="20%">Milestone Name</TH>
-                  <TH w="28%">Deliverable Description</TH>
-                  <TH w="14%">Deliverable Type</TH>
-                  <TH w="14%">Due Date</TH>
-                  <TH>Responsible Party</TH>
-                  <TH w="30px"/>
-                </tr>
-              </thead>
-              <tbody>{rfp.milestones.map((r,i)=>(
-                <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
-                  <TD><Inp placeholder="e.g. Discovery complete" value={r.name} onChange={v=>setA("milestones",i,"name",v)}/></TD>
-                  <TD><Inp placeholder="Detailed description of the deliverable..." value={r.deliverableDesc||r.deliverable||""} onChange={v=>setA("milestones",i,"deliverableDesc",v)}/></TD>
-                  <TD><Sel small options={DELIV_TYPES} value={r.deliverableType} onChange={v=>setA("milestones",i,"deliverableType",v)} placeholder="Type..."/></TD>
-                  <TD><Inp type="date" value={r.date} onChange={v=>setA("milestones",i,"date",v)}/></TD>
-                  <TD><Inp placeholder="Team or role..." value={r.responsibleParty} onChange={v=>setA("milestones",i,"responsibleParty",v)}/></TD>
-                  <TD><DelBtn onClick={()=>rfp.milestones.length>1&&rem("milestones",i)}/></TD>
-                </tr>
-              ))}</tbody>
-            </table>
-            <AddBtn onClick={()=>add("milestones",{name:"",deliverable:"",deliverableDesc:"",deliverableType:"",date:"",responsibleParty:""})} label="Add Milestone"/>
+            {(rfp.outcomes||[]).length===0?(
+              <div style={{padding:"32px 20px",textAlign:"center",background:B.pageBg,borderRadius:6,border:`1px dashed ${B.border}`}}>
+                <div style={{fontSize:13,color:B.textMuted,marginBottom:6}}>No milestones yet.</div>
+                <div style={{fontSize:11,color:B.textMuted}}>Define outcomes in the <strong>Vision &amp; Value</strong> section first — each one creates a milestone here.</div>
+              </div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:16}}>
+                {rfp.outcomes.map((o,oi)=>(
+                  <div key={o.id||oi} style={{border:`1px solid ${B.border}`,borderRadius:6,overflow:"hidden"}}>
+                    {/* Milestone ↔ KPI header */}
+                    <div style={{background:B.deepBlue,padding:"12px 16px"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                        <CBadge color="#FFFFFF" bg="#FFFFFF25">MILESTONE {oi+1}</CBadge>
+                        <div style={{color:"#FFFFFF50",fontSize:14}}>↔</div>
+                        <CBadge color="#FFFFFF" bg="#FFFFFF25">KPI: {o.kpiName||"(unnamed)"}</CBadge>
+                        <div style={{flex:1}}/>
+                        <div style={{color:B.headerText,fontSize:11,fontFamily:"monospace"}}>{o.id||`O-${String(oi+1).padStart(3,"0")}`}</div>
+                      </div>
+                      <div style={{fontSize:11,color:B.headerText,lineHeight:1.5}}>Outcome: {o.outcome||"(not yet defined)"}</div>
+                    </div>
+                    {/* Milestone fields */}
+                    <div style={{padding:"14px 16px",background:B.pageBg,borderBottom:`1px solid ${B.border}`}}>
+                      <G cols={2} gap={12}>
+                        <div><Lbl req>Milestone Name</Lbl><Inp placeholder="e.g. Pilot deployment complete" value={o.msName} onChange={v=>setOutcome(oi,"msName",v)}/></div>
+                        <div><Lbl req>Indicative Target Date</Lbl><Inp type="date" value={o.msTargetDate} onChange={v=>setOutcome(oi,"msTargetDate",v)}/></div>
+                      </G>
+                    </div>
+                    {/* Deliverables list (name + type only at RFP) */}
+                    <div style={{padding:"14px 16px"}}>
+                      <div style={{fontSize:10,fontWeight:700,color:B.deepBlue,letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:10}}>Deliverables for this Milestone ({(o.deliverables||[]).length})</div>
+                      {(o.deliverables||[]).length===0?(
+                        <div style={{fontSize:12,color:B.textMuted,fontStyle:"italic",padding:"6px 0 10px"}}>No deliverables yet. List the deliverables expected under this milestone.</div>
+                      ):(
+                        <table style={{width:"100%",borderCollapse:"collapse",marginBottom:4}}>
+                          <thead><tr>
+                            <TH w="58%">Deliverable Name</TH>
+                            <TH>Type</TH>
+                            <TH w="30px"/>
+                          </tr></thead>
+                          <tbody>{o.deliverables.map((d,di)=>(
+                            <tr key={di} style={{background:di%2===0?B.cardBg:B.pageBg}}>
+                              <TD><Inp placeholder="e.g. Solution design document" value={d.name} onChange={v=>setDeliv(oi,di,"name",v)}/></TD>
+                              <TD><Sel small options={DELIV_TYPES} value={d.type} onChange={v=>setDeliv(oi,di,"type",v)} placeholder="Type..."/></TD>
+                              <TD><DelBtn onClick={()=>remDeliv(oi,di)}/></TD>
+                            </tr>
+                          ))}</tbody>
+                        </table>
+                      )}
+                      <AddBtn onClick={()=>addDeliv(oi)} label="Add Deliverable"/>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
+        {/* ── SECTION 4: Requirements ── */}
         {section===4&&(
           <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px"}}>
             <SLine title="Requirements Table"/>
             <div style={{background:B.activeBg,border:`1px solid ${B.lightBlue}`,borderLeft:`4px solid ${B.midBlue}`,borderRadius:4,padding:"10px 14px",marginBottom:18,fontSize:12,color:B.textMid}}>
               Define what the vendor must deliver. Use <strong>Mandatory</strong> for must-have requirements and <strong>Optional</strong> for nice-to-have. These will feed the vendor evaluation at the Contracting stage.
             </div>
+            {/* Tab switcher */}
             <div style={{display:"flex",gap:0,marginBottom:16,border:`1px solid ${B.border}`,borderRadius:5,overflow:"hidden",width:"fit-content"}}>
               {["functional","nonFunctional"].map(tab=>(
                 <button key={tab} onClick={()=>setReqTab(tab)} style={{padding:"8px 20px",background:reqTab===tab?B.darkBlue:"#FFFFFF",color:reqTab===tab?"#FFFFFF":B.textMid,border:"none",fontSize:12,fontWeight:reqTab===tab?700:500,cursor:"pointer",fontFamily:"inherit"}}>
@@ -924,36 +1174,15 @@ function RFPFormSections({section,setSection,rfp,setRfp,strategy,readOnly}) {
           </div>
         )}
 
+        {/* ── SECTION 5: Submit ── */}
         {section===5&&(
-          <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px"}}>
-            <SLine title="RFP Status"/>
-            <div style={{background:B.activeBg,border:`1px solid ${B.lightBlue}`,borderLeft:`4px solid ${B.midBlue}`,borderRadius:4,padding:"10px 14px",marginBottom:24,fontSize:12,color:B.textMid}}>
-              RFP timelines and procurement approvals are managed by the procurement team outside of this tool. Use the status field below to keep the portfolio view current.
-            </div>
-            <G cols={2} gap={20}>
-              <div>
-                <Lbl req>RFP Status</Lbl>
-                <select value={rfp.rfpStatus} onChange={e=>set("rfpStatus",e.target.value)} style={{width:"100%",boxSizing:"border-box",border:`1px solid ${B.border}`,borderRadius:4,padding:"10px 12px",fontSize:13,fontWeight:700,color:B.darkBlue,background:B.activeBg,fontFamily:"inherit",outline:"none",appearance:"none",cursor:"pointer"}}>
-                  {RFP_STATUS_STEPS.map(s=><option key={s} value={s}>{s}</option>)}
-                </select>
-                <div style={{marginTop:10}}>
-                  <CBadge color={B.darkBlue} bg={B.activeBg}>CURRENT: {rfp.rfpStatus.toUpperCase()}</CBadge>
-                </div>
-              </div>
-            </G>
-            <div style={{height:20}}/>
-            <div><Lbl>RFP Notes</Lbl><Txt rows={4} placeholder="Any notes about the RFP process, vendor queries, or updates from the procurement team..." value={rfp.rfpNotes} onChange={v=>set("rfpNotes",v)}/></div>
-          </div>
-        )}
-
-        {section===6&&(
           <div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:20}}>
               {[
                 {label:"Initiative",     value:strategy.name},
                 {label:"Domain",         value:strategy.domain},
                 {label:"Owner",          value:strategy.owner},
-                {label:"RFP Status",     value:rfp.rfpStatus,    color:B.darkBlue},
+                {label:"Outcomes / KPIs",value:(rfp.outcomes||[]).length, color:B.darkBlue},
                 {label:"Priority Score", value:strategy.score,   color:scoreColor(strategy.score||0)},
               ].map((item,i)=>(
                 <div key={i} style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"14px 16px"}}>
@@ -980,6 +1209,7 @@ function RFPFormSections({section,setSection,rfp,setRfp,strategy,readOnly}) {
                 ))}
               </div>
             </div>
+            {/* Export coming soon */}
             <div style={{background:B.pageBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
               <div>
                 <div style={{fontSize:13,fontWeight:700,color:B.textDark,marginBottom:3}}>Export RFP Document</div>
@@ -1007,7 +1237,7 @@ function PageNewInitiative({onDiscard,onSubmit,onExit}) {
   const initId="CPM-"+new Date().getFullYear()+"-"+String(Math.floor(Math.random()*900)+100);
   return(
     <div style={{fontFamily:"'Segoe UI','Trebuchet MS',system-ui,sans-serif",background:B.pageBg,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
-      <CPMHeader subtitle="New Initiative — Strategy & Initiation" onExit={onExit}
+      <CPMHeader onExit={onExit} subtitle="New Initiative — Strategy & Initiation"
         right={<><div style={{color:B.headerText,fontSize:11}}>ID: <span style={{fontFamily:"monospace",color:"#FFFFFF"}}>{initId}</span></div><CBadge color={B.midBlue} bg={B.midBlue+"40"}>DRAFT</CBadge></>}
       />
       <div style={{background:"#FFFFFF",borderBottom:`1px solid ${B.border}`,padding:"0 28px",display:"flex",alignItems:"center",justifyContent:"space-between",height:44,flexShrink:0}}>
@@ -1034,17 +1264,20 @@ function PageNewInitiative({onDiscard,onSubmit,onExit}) {
 function PageViewInitiative({item,onBack,onMoveToRFP,onOpenWeekly,onViewWeeklyReports,onExit}) {
   const [section,setSection]=useState(0);
 
+  // Detect what kind of item this is
   const isProject = item && (item.progress !== undefined || item.status === "On Track" || item.status === "At Risk" || item.status === "Delayed" || item.status === "Closed");
   const isClosed  = isProject && item.status === "Closed";
   const isRFP     = !isProject && item.phase === "RFP";
+  const isStrategy= !isProject && item.phase === "Strategy";
 
+  // ── PROJECT RECORD VIEW (active or closed) ──
   if (isProject) {
-    const c = item.contractData || {};
+    const c = item.contractData || {};  // The saved contracting form data
     const hasFullRecord = Object.keys(c).length > 0;
 
     return(
       <div style={{fontFamily:"'Segoe UI','Trebuchet MS',system-ui,sans-serif",background:B.pageBg,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
-        <CPMHeader subtitle={`Viewing: ${item.name}`} onExit={onExit}
+        <CPMHeader onExit={onExit} subtitle={`Viewing: ${item.name}`}
           right={<><CBadge color={isClosed?B.textMuted:B.green} bg={(isClosed?B.textMuted:B.green)+"30"}>{isClosed?"CLOSED PROJECT":"ACTIVE PROJECT"}</CBadge><CBadge color={statusColor(item.status)} bg={statusBg(item.status)}>{item.status}</CBadge></>}
         />
         <div style={{background:"#FFFFFF",borderBottom:`1px solid ${B.border}`,padding:"0 28px",display:"flex",alignItems:"center",justifyContent:"space-between",height:44,flexShrink:0}}>
@@ -1063,6 +1296,7 @@ function PageViewInitiative({item,onBack,onMoveToRFP,onOpenWeekly,onViewWeeklyRe
         <div style={{flex:1,overflowY:"auto",padding:"24px 28px 48px"}}>
           <div style={{maxWidth:1100,margin:"0 auto"}}>
 
+            {/* KPI tiles */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:10,marginBottom:20}}>
               {[
                 {label:"Status",       value:item.status, color:statusColor(item.status)},
@@ -1079,6 +1313,7 @@ function PageViewInitiative({item,onBack,onMoveToRFP,onOpenWeekly,onViewWeeklyRe
               ))}
             </div>
 
+            {/* Project Identity card */}
             <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px",marginBottom:16}}>
               <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
                 <div style={{fontSize:11,fontWeight:700,color:B.deepBlue,letterSpacing:"0.08em",textTransform:"uppercase"}}>Project Identity</div>
@@ -1101,6 +1336,7 @@ function PageViewInitiative({item,onBack,onMoveToRFP,onOpenWeekly,onViewWeeklyRe
               </div>
             </div>
 
+            {/* Vendor & Contract card */}
             <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px",marginBottom:16}}>
               <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
                 <div style={{fontSize:11,fontWeight:700,color:B.deepBlue,letterSpacing:"0.08em",textTransform:"uppercase"}}>Vendor & Contract</div>
@@ -1126,7 +1362,8 @@ function PageViewInitiative({item,onBack,onMoveToRFP,onOpenWeekly,onViewWeeklyRe
               </div>
             </div>
 
-            {(c.visionStatement||c.problemStatement||c.businessOutcome||(c.valueRealization&&c.valueRealization.length>0))&&(
+            {/* Vision & Value Realization */}
+            {(c.visionStatement||c.problemStatement||c.businessOutcome||(c.outcomes&&c.outcomes.length>0)||(c.valueRealization&&c.valueRealization.length>0))&&(
               <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px",marginBottom:16}}>
                 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
                   <div style={{fontSize:11,fontWeight:700,color:B.deepBlue,letterSpacing:"0.08em",textTransform:"uppercase"}}>Vision & Value Realization</div>
@@ -1142,32 +1379,61 @@ function PageViewInitiative({item,onBack,onMoveToRFP,onOpenWeekly,onViewWeeklyRe
                     <div style={{fontSize:13,color:B.textDark,lineHeight:1.7,padding:"8px 0",borderBottom:`1px solid ${B.borderLight}`,minHeight:40}}>{c.visionStatement||"—"}</div>
                   </div>
                 </div>
-                <div style={{marginBottom:14}}>
-                  <div style={{fontSize:11,fontWeight:600,color:B.textMuted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:5}}>Expected Business Outcome</div>
-                  <div style={{fontSize:13,fontWeight:600,color:B.textDark,padding:"6px 0",borderBottom:`1px solid ${B.borderLight}`}}>{c.businessOutcome||"—"}</div>
-                </div>
-                {c.valueRealization&&c.valueRealization.filter(r=>r.valueCommitted).length>0&&(
+                {/* New outcomes structure: outcome → KPI 1-1 */}
+                {c.outcomes&&c.outcomes.filter(o=>o.outcome).length>0&&(
                   <div>
-                    <div style={{fontSize:11,fontWeight:700,color:B.deepBlue,letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:8,marginTop:10}}>Value Commitments</div>
+                    <div style={{fontSize:11,fontWeight:700,color:B.deepBlue,letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:8,marginTop:10}}>Expected Outcomes & Value Committed</div>
                     <table style={{width:"100%",borderCollapse:"collapse"}}>
                       <thead><tr>
-                        <th style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:B.textMuted,letterSpacing:"0.07em",background:B.pageBg,borderBottom:`1px solid ${B.border}`,textTransform:"uppercase"}}>Value Committed</th>
-                        <th style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:B.textMuted,letterSpacing:"0.07em",background:B.pageBg,borderBottom:`1px solid ${B.border}`,textTransform:"uppercase"}}>Measurement Method</th>
-                        <th style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:B.textMuted,letterSpacing:"0.07em",background:B.pageBg,borderBottom:`1px solid ${B.border}`,textTransform:"uppercase"}}>Target Date</th>
+                        {["Outcome","Value Committed (KPI)","Measurement Method","Target Date"].map(h=>(
+                          <th key={h} style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:B.textMuted,letterSpacing:"0.07em",background:B.pageBg,borderBottom:`1px solid ${B.border}`,textTransform:"uppercase"}}>{h}</th>
+                        ))}
                       </tr></thead>
-                      <tbody>{c.valueRealization.filter(r=>r.valueCommitted).map((r,i)=>(
+                      <tbody>{c.outcomes.filter(o=>o.outcome).map((o,i)=>(
                         <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
-                          <td style={{padding:"8px 10px",fontSize:12,color:B.textDark,borderBottom:`1px solid ${B.borderLight}`}}>{r.valueCommitted}</td>
-                          <td style={{padding:"8px 10px",fontSize:12,color:B.textDark,borderBottom:`1px solid ${B.borderLight}`}}>{r.measurementMethod||"—"}</td>
-                          <td style={{padding:"8px 10px",fontSize:12,color:B.textDark,borderBottom:`1px solid ${B.borderLight}`}}>{r.targetDate||"—"}</td>
+                          <td style={{padding:"8px 10px",fontSize:12,color:B.textDark,borderBottom:`1px solid ${B.borderLight}`,fontWeight:600}}>{o.outcome}</td>
+                          <td style={{padding:"8px 10px",fontSize:12,color:B.darkBlue,borderBottom:`1px solid ${B.borderLight}`,fontWeight:600}}>{o.kpiName||"—"}</td>
+                          <td style={{padding:"8px 10px",fontSize:12,color:B.textDark,borderBottom:`1px solid ${B.borderLight}`}}>{o.measurementMethod||"—"}</td>
+                          <td style={{padding:"8px 10px",fontSize:12,color:B.textDark,borderBottom:`1px solid ${B.borderLight}`}}>{o.targetDate||"—"}</td>
                         </tr>
                       ))}</tbody>
                     </table>
                   </div>
                 )}
+                {/* Backward compatibility: old valueRealization structure */}
+                {(!c.outcomes||c.outcomes.length===0)&&(
+                  <>
+                    {c.businessOutcome&&(
+                      <div style={{marginBottom:14}}>
+                        <div style={{fontSize:11,fontWeight:600,color:B.textMuted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:5}}>Expected Business Outcome</div>
+                        <div style={{fontSize:13,fontWeight:600,color:B.textDark,padding:"6px 0",borderBottom:`1px solid ${B.borderLight}`}}>{c.businessOutcome}</div>
+                      </div>
+                    )}
+                    {c.valueRealization&&c.valueRealization.filter(r=>r.valueCommitted).length>0&&(
+                      <div>
+                        <div style={{fontSize:11,fontWeight:700,color:B.deepBlue,letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:8,marginTop:10}}>Value Commitments</div>
+                        <table style={{width:"100%",borderCollapse:"collapse"}}>
+                          <thead><tr>
+                            {["Value Committed","Measurement Method","Target Date"].map(h=>(
+                              <th key={h} style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:B.textMuted,letterSpacing:"0.07em",background:B.pageBg,borderBottom:`1px solid ${B.border}`,textTransform:"uppercase"}}>{h}</th>
+                            ))}
+                          </tr></thead>
+                          <tbody>{c.valueRealization.filter(r=>r.valueCommitted).map((r,i)=>(
+                            <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
+                              <td style={{padding:"8px 10px",fontSize:12,color:B.textDark,borderBottom:`1px solid ${B.borderLight}`}}>{r.valueCommitted}</td>
+                              <td style={{padding:"8px 10px",fontSize:12,color:B.textDark,borderBottom:`1px solid ${B.borderLight}`}}>{r.measurementMethod||"—"}</td>
+                              <td style={{padding:"8px 10px",fontSize:12,color:B.textDark,borderBottom:`1px solid ${B.borderLight}`}}>{r.targetDate||"—"}</td>
+                            </tr>
+                          ))}</tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
 
+            {/* Scope */}
             {(c.inScope||c.assumptions)&&(
               <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px",marginBottom:16}}>
                 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
@@ -1187,6 +1453,7 @@ function PageViewInitiative({item,onBack,onMoveToRFP,onOpenWeekly,onViewWeeklyRe
               </div>
             )}
 
+            {/* Deliverables Register */}
             {item.deliverables&&item.deliverables.length>0&&item.deliverables[0].name&&(
               <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px",marginBottom:16}}>
                 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
@@ -1217,6 +1484,7 @@ function PageViewInitiative({item,onBack,onMoveToRFP,onOpenWeekly,onViewWeeklyRe
               </div>
             )}
 
+            {/* Milestones */}
             {item.milestonesList&&item.milestonesList.length>0&&item.milestonesList[0].name&&(
               <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px",marginBottom:16}}>
                 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
@@ -1242,30 +1510,73 @@ function PageViewInitiative({item,onBack,onMoveToRFP,onOpenWeekly,onViewWeeklyRe
               </div>
             )}
 
+            {/* Project Team */}
             {c.team&&c.team.filter(t=>t.name).length>0&&(
               <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px",marginBottom:16}}>
                 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
-                  <div style={{fontSize:11,fontWeight:700,color:B.deepBlue,letterSpacing:"0.08em",textTransform:"uppercase"}}>Project Team</div>
+                  <div style={{fontSize:11,fontWeight:700,color:B.deepBlue,letterSpacing:"0.08em",textTransform:"uppercase"}}>Project Team & KPIs</div>
+                  <div style={{flex:1,height:1,background:B.lineColor}}/>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  {c.team.filter(t=>t.name).map((t,i)=>(
+                    <div key={i} style={{border:`1px solid ${B.border}`,borderRadius:6,overflow:"hidden"}}>
+                      <div style={{background:B.pageBg,padding:"10px 16px",display:"flex",alignItems:"center",gap:10,borderBottom:`1px solid ${B.borderLight}`}}>
+                        <div style={{fontSize:13,fontWeight:700,color:B.textDark}}>{t.name}</div>
+                        <CBadge color={B.darkBlue} bg={B.activeBg}>{t.role||"—"}</CBadge>
+                      </div>
+                      <div style={{padding:"12px 16px"}}>
+                        {(t.kpis&&t.kpis.filter(k=>k.description).length>0)?(
+                          <table style={{width:"100%",borderCollapse:"collapse"}}>
+                            <thead><tr style={{background:B.pageBg}}>
+                              {["KPI / Objective","Measurement Method","Target Date"].map(h=>(
+                                <th key={h} style={{padding:"7px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:B.textMuted,letterSpacing:"0.07em",borderBottom:`1px solid ${B.border}`,textTransform:"uppercase"}}>{h}</th>
+                              ))}
+                            </tr></thead>
+                            <tbody>{t.kpis.filter(k=>k.description).map((k,ki)=>(
+                              <tr key={ki} style={{background:ki%2===0?B.cardBg:B.pageBg}}>
+                                <td style={{padding:"7px 10px",fontSize:12,color:B.textDark,borderBottom:`1px solid ${B.borderLight}`,fontWeight:600}}>{k.description}</td>
+                                <td style={{padding:"7px 10px",fontSize:12,color:B.textMid,borderBottom:`1px solid ${B.borderLight}`}}>{k.measurementMethod||"—"}</td>
+                                <td style={{padding:"7px 10px",fontSize:12,color:B.textMid,borderBottom:`1px solid ${B.borderLight}`,whiteSpace:"nowrap"}}>{k.targetDate||"—"}</td>
+                              </tr>
+                            ))}</tbody>
+                          </table>
+                        ):(
+                          <div style={{fontSize:12,color:B.textMuted,fontStyle:"italic"}}>No KPIs recorded for this member.</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Integration Points */}
+            {((c.integrationPoints&&c.integrationPoints.filter(ip=>ip.team).length>0)||(item.integrationPoints&&item.integrationPoints.filter(ip=>ip.team).length>0))&&(
+              <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px",marginBottom:16}}>
+                <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+                  <div style={{fontSize:11,fontWeight:700,color:B.deepBlue,letterSpacing:"0.08em",textTransform:"uppercase"}}>Integration Points</div>
                   <div style={{flex:1,height:1,background:B.lineColor}}/>
                 </div>
                 <table style={{width:"100%",borderCollapse:"collapse"}}>
                   <thead><tr style={{background:B.pageBg}}>
-                    {["Name","Role","Organisation","Allocation"].map(h=>(
+                    {["Team","Integration Point","Nature","Owner","Status"].map(h=>(
                       <th key={h} style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:B.textMuted,letterSpacing:"0.07em",borderBottom:`1px solid ${B.border}`,textTransform:"uppercase"}}>{h}</th>
                     ))}
                   </tr></thead>
-                  <tbody>{c.team.filter(t=>t.name).map((t,i)=>(
+                  <tbody>{(c.integrationPoints||item.integrationPoints||[]).filter(ip=>ip.team).map((ip,i)=>(
                     <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
-                      <td style={{padding:"8px 10px",fontSize:12,color:B.textDark,fontWeight:600,borderBottom:`1px solid ${B.borderLight}`}}>{t.name}</td>
-                      <td style={{padding:"8px 10px",fontSize:12,color:B.textMid,borderBottom:`1px solid ${B.borderLight}`}}>{t.role||"—"}</td>
-                      <td style={{padding:"8px 10px",fontSize:12,color:B.textMid,borderBottom:`1px solid ${B.borderLight}`}}>{t.organisation||"—"}</td>
-                      <td style={{padding:"8px 10px",fontSize:12,color:B.textMid,borderBottom:`1px solid ${B.borderLight}`}}>{t.allocation||"—"}</td>
+                      <td style={{padding:"8px 10px",fontSize:12,color:B.textDark,fontWeight:600,borderBottom:`1px solid ${B.borderLight}`}}>{ip.team}</td>
+                      <td style={{padding:"8px 10px",fontSize:12,color:B.textMid,borderBottom:`1px solid ${B.borderLight}`}}>{ip.integrationPoint||"—"}</td>
+                      <td style={{padding:"8px 10px",fontSize:12,color:B.textMid,borderBottom:`1px solid ${B.borderLight}`}}>{ip.nature||"—"}</td>
+                      <td style={{padding:"8px 10px",fontSize:12,color:B.textMid,borderBottom:`1px solid ${B.borderLight}`}}>{ip.owner||"—"}</td>
+                      <td style={{padding:"8px 10px",borderBottom:`1px solid ${B.borderLight}`}}><CBadge color={B.darkBlue} bg={B.activeBg}>{(ip.status||"—").toUpperCase()}</CBadge></td>
                     </tr>
                   ))}</tbody>
                 </table>
               </div>
             )}
 
+            {/* Risks (legacy projects only) */}
             {item.risksList&&item.risksList.length>0&&item.risksList[0].description&&(
               <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px",marginBottom:16}}>
                 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
@@ -1314,10 +1625,11 @@ function PageViewInitiative({item,onBack,onMoveToRFP,onOpenWeekly,onViewWeeklyRe
     );
   }
 
+  // ── RFP INITIATIVE VIEW (read-only RFP form) ──
   if (isRFP && item.rfpData) {
     return(
       <div style={{fontFamily:"'Segoe UI','Trebuchet MS',system-ui,sans-serif",background:B.pageBg,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
-        <CPMHeader subtitle={`Viewing: ${item.name}`} onExit={onExit}
+        <CPMHeader onExit={onExit} subtitle={`Viewing: ${item.name}`}
           right={<><CBadge color={phaseColor(item.phase)} bg={phaseBg(item.phase)}>{item.phase.toUpperCase()}</CBadge><CBadge color={B.amber} bg={B.amberLight}>{item.status}</CBadge></>}
         />
         <div style={{background:"#FFFFFF",borderBottom:`1px solid ${B.border}`,padding:"0 28px",display:"flex",alignItems:"center",justifyContent:"space-between",height:44,flexShrink:0}}>
@@ -1338,10 +1650,11 @@ function PageViewInitiative({item,onBack,onMoveToRFP,onOpenWeekly,onViewWeeklyRe
     );
   }
 
-  const form={...EMPTY_STRATEGY,...item,frameworks:item.frameworks||[],kpis:item.kpis||[{name:"",baseline:"",target:"",method:""}],outOfScope:item.outOfScope||[{item:"",reason:""}],stakeholders:item.stakeholders||[{name:"",role:""}],integrations:item.integrations||[{initiative:"",nature:"",risk:""}],depRisks:item.depRisks||[],milestones:item.milestones||[],answers:item.answers||{}};
+  // ── STRATEGY INITIATIVE VIEW (read-only Strategy form) ──
+  const form={...EMPTY_STRATEGY,...item,cisoPillars:item.cisoPillars||(item.pillar?[item.pillar]:[]),strategyOutcomes:item.strategyOutcomes||[],depRisks:item.depRisks||[],answers:item.answers||{}};
   return(
     <div style={{fontFamily:"'Segoe UI','Trebuchet MS',system-ui,sans-serif",background:B.pageBg,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
-      <CPMHeader subtitle={`Viewing: ${item.name}`} onExit={onExit}
+      <CPMHeader onExit={onExit} subtitle={`Viewing: ${item.name}`}
         right={<><CBadge color={phaseColor(item.phase)} bg={phaseBg(item.phase)}>{item.phase.toUpperCase()}</CBadge><CBadge color={B.amber} bg={B.amberLight}>{item.status}</CBadge></>}
       />
       <div style={{background:"#FFFFFF",borderBottom:`1px solid ${B.border}`,padding:"0 28px",display:"flex",alignItems:"center",justifyContent:"space-between",height:44,flexShrink:0}}>
@@ -1369,8 +1682,8 @@ function PageRFP({strategy,onBack,onSubmit,onExit}) {
   const [rfp,setRfp]=useState(EMPTY_RFP(strategy));
   return(
     <div style={{fontFamily:"'Segoe UI','Trebuchet MS',system-ui,sans-serif",background:B.pageBg,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
-      <CPMHeader subtitle={`RFP — ${strategy.name}`} onExit={onExit}
-        right={<><CBadge color={B.midBlue} bg={B.midBlue+"30"}>RFP PHASE</CBadge><CBadge color={B.amber} bg={B.amberLight}>{rfp.rfpStatus.toUpperCase()}</CBadge></>}
+      <CPMHeader onExit={onExit} subtitle={`RFP — ${strategy.name}`}
+        right={<CBadge color={B.midBlue} bg={B.midBlue+"30"}>RFP PHASE</CBadge>}
       />
       <div style={{background:"#FFFFFF",borderBottom:`1px solid ${B.border}`,padding:"0 28px",display:"flex",alignItems:"center",justifyContent:"space-between",height:44,flexShrink:0}}>
         <button onClick={onBack} style={{background:"none",border:"none",color:B.textMid,fontSize:13,cursor:"pointer",fontFamily:"inherit",fontWeight:500}}>← Back to Portfolio</button>
@@ -1410,7 +1723,7 @@ function PageLanding({pipeline,projects,onNewInitiative,onNewRFP,onNewActiveProj
 
   return(
     <div style={{fontFamily:"'Segoe UI','Trebuchet MS',system-ui,sans-serif",background:B.pageBg,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
-      <CPMHeader subtitle="CISO Portfolio Overview" onExit={onExit} right={<div style={{color:B.headerText,fontSize:11}}>Data as of {cpmToday}</div>}/>
+      <CPMHeader onExit={onExit} subtitle="CISO Portfolio Overview" right={<div style={{color:B.headerText,fontSize:11}}>Data as of {cpmToday}</div>}/>
       <div style={{background:"#FFFFFF",borderBottom:`1px solid ${B.border}`,padding:"0 28px",display:"flex",alignItems:"center",gap:2,flexShrink:0}}>
         {[{id:"overview",label:"Portfolio Overview"},{id:"pipeline",label:"Initiatives"},{id:"projects",label:"Active Projects"},{id:"risks",label:"Risks & Issues"}].map(t=>(
           <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{padding:"12px 20px",background:activeTab===t.id?B.darkBlue:"transparent",color:activeTab===t.id?"#FFFFFF":B.textMuted,border:"none",fontSize:12,fontWeight:activeTab===t.id?700:500,cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit",borderRadius:activeTab===t.id?"4px 4px 0 0":0,marginBottom:activeTab===t.id?-1:0}}>{t.label}</button>
@@ -1460,7 +1773,7 @@ function PageLanding({pipeline,projects,onNewInitiative,onNewRFP,onNewActiveProj
                                 <div style={{fontSize:12,fontWeight:700,color:B.textDark,marginBottom:3}}>{item.name}</div>
                                 <div style={{fontSize:11,color:B.textMuted,marginBottom:6}}>{item.domain}</div>
                                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                                  <span style={{fontSize:11,color:B.textMuted}}>{(item.owner||"").split(" ")[0]}</span>
+                                  <span style={{fontSize:11,color:B.textMuted}}>{item.owner.split(" ")[0]}</span>
                                   <div style={{fontSize:11,fontWeight:700,color:scoreColor(item.score)}}>Score: {item.score}</div>
                                 </div>
                               </div>
@@ -1582,13 +1895,13 @@ function PageLanding({pipeline,projects,onNewInitiative,onNewRFP,onNewActiveProj
                         <ProgressBar pct={p.progress} color={statusColor(p.status)}/>
                         <div style={{fontSize:11,color:B.textMuted,marginTop:4}}>{p.progress}% complete</div>
                       </div>
-                      <div><div style={{fontSize:10,fontWeight:700,color:B.textMuted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:4}}>Current Milestone</div><div style={{fontSize:12,fontWeight:600,color:B.textDark,marginBottom:4}}>{p.milestone}</div><CBadge color={statusColor(p.milestoneStatus)} bg={statusBg(p.milestoneStatus)}>{(p.milestoneStatus||"").toUpperCase()}</CBadge></div>
+                      <div><div style={{fontSize:10,fontWeight:700,color:B.textMuted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:4}}>Current Milestone</div><div style={{fontSize:12,fontWeight:600,color:B.textDark,marginBottom:4}}>{p.milestone}</div><CBadge color={statusColor(p.milestoneStatus)} bg={statusBg(p.milestoneStatus)}>{p.milestoneStatus.toUpperCase()}</CBadge></div>
                       <div><div style={{fontSize:10,fontWeight:700,color:B.textMuted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:4}}>{p.status==="Closed"?"Closure Date":"Due Date"}</div><div style={{fontSize:13,fontWeight:600,color:B.textDark}}>{p.status==="Closed"?(p.closureDate||"—"):p.dueDate}</div></div>
                       <div><div style={{fontSize:10,fontWeight:700,color:B.textMuted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:4}}>Budget</div><div style={{fontSize:13,fontWeight:700,color:B.darkBlue}}>{p.budget}</div><div style={{fontSize:11,color:B.textMuted}}>Spent: {p.spent}</div></div>
                       <div><div style={{fontSize:10,fontWeight:700,color:B.textMuted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:4}}>Risks</div><div style={{fontSize:20,fontWeight:800,color:p.risks>0?B.red:B.green}}>{p.risks}</div></div>
                       <div><div style={{fontSize:10,fontWeight:700,color:B.textMuted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:4}}>Issues</div><div style={{fontSize:20,fontWeight:800,color:p.issues>0?B.amber:B.green}}>{p.issues}</div></div>
                       <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                        <button onClick={()=>onViewInitiative(p)} style={{background:B.darkBlue,color:"#FFFFFF",border:"none",borderRadius:3,padding:"6px 14px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>View Project</button>
+                        <button style={{background:B.darkBlue,color:"#FFFFFF",border:"none",borderRadius:3,padding:"6px 14px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>View Project</button>
                         {p.status!=="Closed"&&<button onClick={()=>onOpenWeekly(p)} style={{background:B.midBlue,border:"none",color:"#FFFFFF",borderRadius:3,padding:"6px 14px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>Weekly Update →</button>}
                       </div>
                     </div>
@@ -1620,7 +1933,7 @@ function PageLanding({pipeline,projects,onNewInitiative,onNewRFP,onNewActiveProj
                       <td style={{padding:"12px 14px"}}><div style={{fontSize:18,fontWeight:800,color:p.issues>0?B.amber:B.green}}>{p.issues}</div></td>
                       <td style={{padding:"12px 14px"}}><CBadge color={statusColor(p.status)} bg={statusBg(p.status)}>{p.status.toUpperCase()}</CBadge></td>
                       <td style={{padding:"12px 14px",minWidth:100}}><ProgressBar pct={p.progress} color={statusColor(p.status)}/><div style={{fontSize:11,color:B.textMuted,marginTop:3}}>{p.progress}%</div></td>
-                      <td style={{padding:"12px 14px"}}><button onClick={()=>onViewInitiative(p)} style={{background:B.darkBlue,color:"#FFFFFF",border:"none",borderRadius:3,padding:"5px 12px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>View Risks</button></td>
+                      <td style={{padding:"12px 14px"}}><button style={{background:B.darkBlue,color:"#FFFFFF",border:"none",borderRadius:3,padding:"5px 12px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>View Risks</button></td>
                     </tr>
                   ))}</tbody>
                 </table>
@@ -1631,6 +1944,7 @@ function PageLanding({pipeline,projects,onNewInitiative,onNewRFP,onNewActiveProj
         </div>
       </div>
 
+      {/* Slide-in quick summary */}
       {selectedItem&&(()=>{
         const isProject = selectedItem._cardType==="project";
         const isClosed  = isProject && selectedItem.status==="Closed";
@@ -1652,7 +1966,7 @@ function PageLanding({pipeline,projects,onNewInitiative,onNewRFP,onNewActiveProj
           {label:"Priority Score", value:selectedItem.score, color:scoreColor(selectedItem.score||0)},
           {label:"Status",       value:selectedItem.status},
           {label:"Est. Budget",  value:selectedItem.budget},
-          {label:"CISO Pillar",  value:selectedItem.pillar||selectedItem.cisoPillar},
+          {label:"Objectives",  value:(selectedItem.cisoPillars&&selectedItem.cisoPillars.length>0)?selectedItem.cisoPillars.join(", "):(selectedItem.pillar||selectedItem.cisoPillar)},
           {label:"Submitted",    value:selectedItem.submitted},
         ];
         return(
@@ -1672,8 +1986,10 @@ function PageLanding({pipeline,projects,onNewInitiative,onNewRFP,onNewActiveProj
               </div>
             ))}
             <div style={{marginTop:20,display:"flex",flexDirection:"column",gap:10}}>
+              {/* View Record - on every card */}
               <button onClick={()=>{onViewInitiative(selectedItem);setSelectedItem(null);}} style={{background:B.darkBlue,color:"#FFFFFF",border:"none",borderRadius:4,padding:"10px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>View Record →</button>
 
+              {/* Stage-specific actions */}
               {!isProject&&selectedItem.phase==="Strategy"&&(
                 <button onClick={()=>{onOpenRFP(selectedItem);setSelectedItem(null);}} style={{background:B.midBlue,color:"#FFFFFF",border:"none",borderRadius:4,padding:"10px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Open RFP Page →</button>
               )}
@@ -1681,6 +1997,7 @@ function PageLanding({pipeline,projects,onNewInitiative,onNewRFP,onNewActiveProj
                 <button onClick={()=>{onOpenContracting(selectedItem);setSelectedItem(null);}} style={{background:B.green,color:"#FFFFFF",border:"none",borderRadius:4,padding:"10px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Activate Project →</button>
               )}
 
+              {/* Active project: submit weekly + view history */}
               {isProject&&!isClosed&&(
                 <button onClick={()=>{onOpenWeekly(selectedItem);setSelectedItem(null);}} style={{background:B.midBlue,color:"#FFFFFF",border:"none",borderRadius:4,padding:"10px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Submit New Weekly Update →</button>
               )}
@@ -1688,6 +2005,7 @@ function PageLanding({pipeline,projects,onNewInitiative,onNewRFP,onNewActiveProj
                 <button onClick={()=>{onViewWeeklyReports&&onViewWeeklyReports(selectedItem);setSelectedItem(null);}} style={{background:"#FFFFFF",color:B.darkBlue,border:`1px solid ${B.darkBlue}`,borderRadius:4,padding:"10px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>View Weekly Reports →</button>
               )}
 
+              {/* Pipeline-only: approve / return */}
               {!isProject&&(
                 <>
                   <button style={{background:B.greenLight,border:`1px solid ${B.green}30`,color:B.green,borderRadius:4,padding:"10px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>✓ Approve Initiative</button>
@@ -1703,6 +2021,7 @@ function PageLanding({pipeline,projects,onNewInitiative,onNewRFP,onNewActiveProj
   );
 }
 
+
 // ══ CONTRACTING PAGE — UNIQUE CONSTANTS ════════════════════════════════════
 const RISK_MATRIX = {
   "High-High":"Critical","High-Medium":"High","High-Low":"Medium",
@@ -1716,55 +2035,104 @@ const CONTRACT_SECTIONS = [
   {id:"reference",    label:"Contract Reference"},
   {id:"vendor",       label:"Vendor & Contract"},
   {id:"vision",       label:"Vision & Value"},
-  {id:"scope",        label:"Scope & Deliverables"},
-  {id:"timeline",     label:"Timeline & Milestones"},
+  {id:"scope",        label:"Scope"},
+  {id:"timeline",     label:"Milestones & Deliverables"},
   {id:"team",         label:"Project Team"},
-  {id:"risks",        label:"Risk Register"},
-  {id:"dependencies", label:"Dependencies"},
+  {id:"dependencies", label:"Dependencies & Integration"},
   {id:"submit",       label:"Submit & Activate"},
 ];
 
+// Predefined measurable outcomes (categorised)
+const PREDEFINED_OUTCOMES = [
+  // Cyber-specific
+  {category:"Cyber", text:"Reduce mean time to detect (MTTD) security incidents"},
+  {category:"Cyber", text:"Reduce mean time to respond (MTTR) to incidents"},
+  {category:"Cyber", text:"Achieve target MFA coverage across all users"},
+  {category:"Cyber", text:"Close outstanding audit / compliance findings"},
+  {category:"Cyber", text:"Reduce number of privileged accounts with standing access"},
+  {category:"Cyber", text:"Increase percentage of assets covered by security monitoring"},
+  {category:"Cyber", text:"Reduce critical vulnerabilities open beyond SLA"},
+  {category:"Cyber", text:"Achieve target phishing simulation pass rate"},
+  // General business
+  {category:"Business", text:"Reduce operational cost / total cost of ownership"},
+  {category:"Business", text:"Improve process efficiency / reduce manual effort"},
+  {category:"Business", text:"Increase regulatory compliance coverage"},
+  {category:"Business", text:"Improve stakeholder / user satisfaction"},
+  {category:"Business", text:"Reduce time-to-deliver for dependent initiatives"},
+];
+
+// Mocked AI outcome suggestions (would be a real model call in production)
+const AI_OUTCOME_SUGGESTIONS = [
+  {text:"Achieve 95% privileged account coverage in the PAM vault within 6 months of go-live", kpi:"Privileged accounts vaulted (%)", method:"Monthly PAM audit report"},
+  {text:"Enable session recording on 100% of privileged sessions", kpi:"Privileged sessions recorded (%)", method:"PAM session log review"},
+  {text:"Reduce time-to-revoke access for departed admins to under 5 minutes", kpi:"Mean time-to-revoke (minutes)", method:"Quarterly access lifecycle audit"},
+  {text:"Eliminate all shared administrative credentials", kpi:"Shared admin credentials remaining (count)", method:"Credential inventory scan"},
+];
+
 const EMPTY_CONTRACT = (rfp, strategy) => ({
+  // B: Vendor & Contract
   vendorName:"", contractRef:"", contractStart:"", contractEnd:"",
   contractValue:"", capex:"", opex:"", procurementRef:"",
+
+  // C: Vision & Value Realization
   visionStatement:  rfp?.visionStatement  || strategy?.visionStatement  || "",
   problemStatement: rfp?.problemStatement || strategy?.problemStatement || "",
-  businessOutcome:  rfp?.businessOutcome  || strategy?.businessOutcome  || "",
-  valueRealization: [{valueCommitted:"", measurementMethod:"", targetDate:""}],
-  inScope:    rfp?.inScope    || strategy?.inScope    || "",
-  outOfScope: rfp?.outOfScope || [{item:"",reason:""}],
-  assumptions:rfp?.assumptions|| strategy?.assumptions|| "",
-  deliverables:[{
-    id:"D-001", name:"", description:"", type:"", milestone:"",
-    dueDate:"", responsibleParty:"", qaReviewer:"", approver:"",
-    status:"Not Started",
-  }],
-  milestones:(rfp?.milestones||strategy?.milestones||[]).map((m,i)=>({
-    ...m,
-    startDate: m.date||"",
-    endDate:   "",
-    weight:    "",
-    linkedDeliverables:"",
-    status:    "Not Started",
+  // Outcomes carry forward: prefer RFP outcomes (richer — include deliverables list),
+  // falling back to strategy outcomes. Gain full milestone detail (start/end, weight) and
+  // full deliverable detail (dueDate, QA, approver, status) here.
+  outcomes: ((rfp?.outcomes && rfp.outcomes.length>0) ? rfp.outcomes : (strategy?.strategyOutcomes || [])).map((so,i)=>({
+    id: so.id || `O-${String(i+1).padStart(3,"0")}`,
+    outcome: so.outcome||"", source: so.source||"free",
+    kpiName: so.kpiName||"", measurementMethod: so.measurementMethod||"", targetDate: so.targetDate||"",
+    msName: so.msName||so.kpiName||"", msStart:"", msEnd: so.msTargetDate||"", msWeight:"", msStatus:"Not Started",
+    deliverables: (so.deliverables||[]).map((d,di)=>({
+      id:`D-${String(di+1).padStart(3,"0")}`,
+      name:d.name||"", type:d.type||"", dueDate:"", qaReviewer:"", approver:"", status:"Not Started",
+    })),
   })),
+
+  // D: Scope
+  inScope:    rfp?.inScope    || strategy?.inScope    || "",
+  assumptions:rfp?.assumptions|| strategy?.assumptions|| "",
+
+  // F: Project Team (each member: name, role, and a list of learning-on-the-job KPIs)
   pm:"", pmEmail:"", escalationContact:"",
-  team:[{name:"",role:"",organisation:"",allocation:""}],
-  risks:[{
-    id:"R-001", category:"", description:"", likelihood:"",
-    impact:"", overrideRating:"", overrideComment:"",
-    mitigation:"", owner:"", status:"Open",
-  }],
+  team:[{name:"",role:"",kpis:[{description:"",measurementMethod:"",targetDate:""}]}],
+
+  // G: Dependencies & Integration
   dependencies:(strategy?.depRisks||[]).map(d=>({
     initiative:d.initiative||"", nature:d.dependency||"",
     riskIfDelayed:d.risk||"", severity:d.severity||"",
     owner:"", linkedStatus:"",
   })),
+  integrationPoints:[{
+    team:"", integrationPoint:"", nature:"", owner:"", status:"To Be Established",
+  }],
+
+  // Reporting settings (placeholder for upcoming feature)
   reportCadence:    "Weekly",
   reportDay:        "Monday",
   reportRecipients: [{name:"",email:"",role:""}],
   reportFormat:     "Executive summary",
   firstReportDate:  "",
+
   note:"",
+});
+
+// Factory for a new outcome (with its paired milestone + empty deliverables)
+let _outcomeSeq = 1;
+const newOutcome = (overrides={}) => ({
+  id: `O-${String(_outcomeSeq++).padStart(3,"0")}`,
+  outcome: "", source: "free",
+  kpiName: "", measurementMethod: "", targetDate: "",
+  msName: "", msStart: "", msEnd: "", msWeight: "", msStatus: "Not Started",
+  deliverables: [],
+  ...overrides,
+});
+let _delivSeq = 1;
+const newDeliverable = () => ({
+  id: `D-${String(_delivSeq++).padStart(3,"0")}`,
+  name:"", type:"", dueDate:"", qaReviewer:"", approver:"", status:"Not Started",
 });
 
 function GanttChart({milestones}) {
@@ -1784,8 +2152,10 @@ function GanttChart({milestones}) {
   const minDate = new Date(Math.min(...parsed.map(m=>m.start)));
   const maxDate = new Date(Math.max(...parsed.map(m=>m.end)));
   const totalDays = Math.max((maxDate-minDate)/(1000*60*60*24),1);
+
   const msColors = [B.darkBlue,B.midBlue,B.lightBlue,"#0091C7","#0058A0","#004578"];
 
+  // Generate month labels
   const months = [];
   const cursor = new Date(minDate.getFullYear(),minDate.getMonth(),1);
   while(cursor<=maxDate){
@@ -1796,6 +2166,7 @@ function GanttChart({milestones}) {
   return(
     <div style={{overflowX:"auto"}}>
       <div style={{minWidth:600}}>
+        {/* Month headers */}
         <div style={{display:"flex",marginLeft:180,marginBottom:4}}>
           {months.map((m,i)=>{
             const monthStart = new Date(Math.max(m,minDate));
@@ -1813,7 +2184,9 @@ function GanttChart({milestones}) {
             );
           })}
         </div>
+        {/* Month grid lines + milestone bars */}
         <div style={{position:"relative",paddingTop:18}}>
+          {/* Grid lines */}
           <div style={{position:"absolute",top:0,left:180,right:0,bottom:0,display:"flex",pointerEvents:"none"}}>
             {months.map((m,i)=>{
               const leftPct=((new Date(Math.max(m,minDate))-minDate)/(totalDays*86400000))*100;
@@ -1827,11 +2200,13 @@ function GanttChart({milestones}) {
             const sc       = statusColor(m.status||"Not Started");
             return(
               <div key={i} style={{display:"flex",alignItems:"center",marginBottom:8,height:32}}>
+                {/* Label */}
                 <div style={{width:180,flexShrink:0,paddingRight:12,overflow:"hidden"}}>
                   <div style={{fontSize:11,fontWeight:600,color:B.textDark,whiteSpace:"nowrap",
                     overflow:"hidden",textOverflow:"ellipsis"}}>{m.name||`Milestone ${i+1}`}</div>
                   <CBadge color={sc} bg={statusBg(m.status||"Not Started")}>{m.status||"Not Started"}</CBadge>
                 </div>
+                {/* Bar track */}
                 <div style={{flex:1,height:32,background:B.pageBg,
                   border:`1px solid ${B.borderLight}`,borderRadius:4,position:"relative",overflow:"hidden"}}>
                   <div style={{position:"absolute",left:`${leftPct}%`,width:`${widthPct}%`,
@@ -1846,6 +2221,7 @@ function GanttChart({milestones}) {
             );
           })}
         </div>
+        {/* Today line */}
         <div style={{fontSize:10,color:B.textMuted,marginTop:8,textAlign:"right"}}>
           Project span: {minDate.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})} → {maxDate.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}
         </div>
@@ -1855,15 +2231,34 @@ function GanttChart({milestones}) {
 }
 
 // ══ MAIN CONTRACTING PAGE ════════════════════════════════════════════════════
+
 function PageContracting({strategy,rfp,onBack,onActivate,mode,onExit}) {
   const [section,setSection] = useState(0);
   const [form,setForm]       = useState(EMPTY_CONTRACT(rfp,strategy));
   const [activated,setActivated] = useState(false);
+  const [outcomeMode,setOutcomeMode] = useState("predefined"); // "ai" | "predefined" | "free"
+  const [aiSuggestions,setAiSuggestions] = useState([]); // mocked AI results
+  const [aiGenerated,setAiGenerated] = useState(false);
+  const [predefinedPick,setPredefinedPick] = useState("");
 
   const set  = (k,v)        => setForm(f=>({...f,[k]:v}));
   const setA = (k,i,f2,v)  => setForm(f=>{const a=[...f[k]];a[i]={...a[i],[f2]:v};return{...f,[k]:a};});
   const add  = (k,t)        => setForm(f=>({...f,[k]:[...f[k],t]}));
   const rem  = (k,i)        => setForm(f=>({...f,[k]:f[k].filter((_,j)=>j!==i)}));
+
+  // Outcome helpers (each outcome carries its KPI + 1-1 milestone + deliverables)
+  const addOutcome    = (o)        => setForm(f=>({...f,outcomes:[...f.outcomes, o]}));
+  const setOutcome    = (i,f2,v)  => setForm(f=>{const a=[...f.outcomes];a[i]={...a[i],[f2]:v};return{...f,outcomes:a};});
+  const remOutcome    = (i)        => setForm(f=>({...f,outcomes:f.outcomes.filter((_,j)=>j!==i)}));
+  // Nested deliverable helpers (operate on outcomes[oi].deliverables)
+  const addDeliv      = (oi)       => setForm(f=>{const a=[...f.outcomes];a[oi]={...a[oi],deliverables:[...a[oi].deliverables, newDeliverable()]};return{...f,outcomes:a};});
+  const setDeliv      = (oi,di,f2,v)=>setForm(f=>{const a=[...f.outcomes];const d=[...a[oi].deliverables];d[di]={...d[di],[f2]:v};a[oi]={...a[oi],deliverables:d};return{...f,outcomes:a};});
+  const remDeliv      = (oi,di)    => setForm(f=>{const a=[...f.outcomes];a[oi]={...a[oi],deliverables:a[oi].deliverables.filter((_,j)=>j!==di)};return{...f,outcomes:a};});
+
+  // Team-member KPI helpers (operate on team[ti].kpis)
+  const addTeamKpi    = (ti)       => setForm(f=>{const a=[...f.team];a[ti]={...a[ti],kpis:[...(a[ti].kpis||[]), {description:"",measurementMethod:"",targetDate:""}]};return{...f,team:a};});
+  const setTeamKpi    = (ti,ki,f2,v)=>setForm(f=>{const a=[...f.team];const k=[...a[ti].kpis];k[ki]={...k[ki],[f2]:v};a[ti]={...a[ti],kpis:k};return{...f,team:a};});
+  const remTeamKpi    = (ti,ki)    => setForm(f=>{const a=[...f.team];a[ti]={...a[ti],kpis:a[ti].kpis.filter((_,j)=>j!==ki)};return{...f,team:a};});
 
   const autoId = (prefix,arr,i) => arr[i]?.id || `${prefix}-${String(i+1).padStart(3,"0")}`;
 
@@ -1872,18 +2267,20 @@ function PageContracting({strategy,rfp,onBack,onActivate,mode,onExit}) {
     {label:"Project Manager",  value:form.pm||"—"},
     {label:"Contract Value",   value:form.contractValue?`$${Number(form.contractValue).toLocaleString()}`:"—", color:B.darkBlue},
     {label:"Start → End",      value:form.contractStart&&form.contractEnd?`${form.contractStart} → ${form.contractEnd}`:"—"},
-    {label:"Deliverables",     value:form.deliverables.length, color:B.midBlue},
-    {label:"Open Risks",       value:form.risks.filter(r=>r.status==="Open").length, color:B.red},
+    {label:"Outcomes / KPIs",  value:form.outcomes.length, color:B.midBlue},
+    {label:"Deliverables",     value:form.outcomes.reduce((s,o)=>s+o.deliverables.length,0), color:B.midBlue},
+    {label:"Integration Points", value:form.integrationPoints.filter(ip=>ip.team).length, color:B.midBlue},
   ];
 
   return(
     <div style={{fontFamily:"'Segoe UI','Trebuchet MS',system-ui,sans-serif",background:B.pageBg,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
 
+      {/* ── CPMHeader ── */}
       <div style={{background:B.deepBlue,padding:"0 28px",display:"flex",alignItems:"center",
         justifyContent:"space-between",height:48,flexShrink:0}}>
         <div style={{display:"flex",alignItems:"center",gap:24}}>
           {onExit && <button onClick={onExit} title="Back to Suite" style={{background:"#FFFFFF20",border:"1px solid #FFFFFF40",color:"#FFFFFF",borderRadius:4,padding:"3px 10px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>⊞ Suite</button>}
-          <div style={{color:"#FFFFFF",fontWeight:800,fontSize:15,letterSpacing:"0.14em"}}>CPM</div>
+      <div style={{color:"#FFFFFF",fontWeight:800,fontSize:15,letterSpacing:"0.14em"}}>CPM</div>
           <div style={{width:1,height:20,background:"#FFFFFF30"}}/>
           <div style={{color:B.headerText,fontSize:12}}>Cyber Portfolio Management</div>
           <div style={{width:1,height:20,background:"#FFFFFF30"}}/>
@@ -1896,6 +2293,7 @@ function PageContracting({strategy,rfp,onBack,onActivate,mode,onExit}) {
         </div>
       </div>
 
+      {/* ── Sub-bar ── */}
       <div style={{background:"#FFFFFF",borderBottom:`1px solid ${B.border}`,padding:"0 28px",
         display:"flex",alignItems:"center",justifyContent:"space-between",height:44,flexShrink:0}}>
         <button onClick={onBack} style={{background:"none",border:"none",color:B.textMid,
@@ -1919,6 +2317,7 @@ function PageContracting({strategy,rfp,onBack,onActivate,mode,onExit}) {
         </div>
       </div>
 
+      {/* ── Page subtitle ── */}
       <div style={{background:"#FFFFFF",padding:"7px 28px",borderBottom:`1px solid ${B.borderLight}`}}>
         <span style={{fontSize:12,color:B.textMuted}}>
           Finalise all project details following contract award. Once submitted and approved by the CISO, the project moves into active execution.
@@ -1927,9 +2326,11 @@ function PageContracting({strategy,rfp,onBack,onActivate,mode,onExit}) {
 
       <SectionTimeline sections={CONTRACT_SECTIONS} section={section} setSection={setSection}/>
 
+      {/* ══ MAIN CONTENT ══ */}
       <div style={{flex:1,overflowY:"auto",padding:"24px 28px 48px"}}>
         <div style={{maxWidth:1140,margin:"0 auto"}}>
 
+          {/* ── A: Reference ── */}
           {section===0&&(
             <div>
               <div style={{background:B.deepBlue,borderRadius:6,padding:"20px 24px",marginBottom:16}}>
@@ -1943,10 +2344,10 @@ function PageContracting({strategy,rfp,onBack,onActivate,mode,onExit}) {
                     {label:"Initiative ID",   value:strategy?.id},
                     {label:"Domain",          value:strategy?.domain},
                     {label:"Owner",           value:strategy?.owner},
-                    {label:"CISO Pillar",     value:strategy?.pillar||strategy?.cisoPillar},
+                    {label:"Objectives",     value:(strategy?.cisoPillars&&strategy.cisoPillars.length>0)?strategy.cisoPillars.join(", "):(strategy?.pillar||strategy?.cisoPillar)},
                     {label:"Priority Score",  value:strategy?.score, color:scoreColor(strategy?.score||0)},
                     {label:"Est. Budget",     value:strategy?.budget},
-                    {label:"RFP Status",      value:rfp?.rfpStatus||strategy?.status},
+                    {label:"Stage",           value:strategy?.status||"RFP"},
                   ].map((f,i)=>(
                     <div key={i} style={{background:"#FFFFFF18",borderRadius:5,padding:"10px 14px"}}>
                       <div style={{fontSize:10,fontWeight:700,color:B.headerText,
@@ -1963,19 +2364,19 @@ function PageContracting({strategy,rfp,onBack,onActivate,mode,onExit}) {
                   background:B.pageBg,borderRadius:5,border:`1px solid ${B.border}`,marginBottom:16}}>
                   {rfp?.inScope||strategy?.inScope||"—"}
                 </div>
-                <SLine title="RFP Milestones (Reference)"/>
-                {(rfp?.milestones||strategy?.milestones||[]).length>0?(
+                <SLine title="RFP Outcomes & Milestones (Reference)"/>
+                {((rfp?.outcomes||strategy?.strategyOutcomes||[]).length>0)?(
                   <table style={{width:"100%",borderCollapse:"collapse"}}>
-                    <thead><tr><TH w="35%">Milestone</TH><TH w="20%">Target Date</TH><TH>Deliverable</TH></tr></thead>
-                    <tbody>{(rfp?.milestones||strategy?.milestones||[]).map((m,i)=>(
+                    <thead><tr><TH w="30%">Milestone ↔ KPI</TH><TH w="18%">Target Date</TH><TH>Deliverables</TH></tr></thead>
+                    <tbody>{(rfp?.outcomes||strategy?.strategyOutcomes||[]).map((o,i)=>(
                       <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
-                        <TD>{m.name||"—"}</TD>
-                        <TD>{m.date||m.endDate||"—"}</TD>
-                        <TD>{m.deliverable||m.deliverableDesc||"—"}</TD>
+                        <TD>{o.msName||o.kpiName||"—"}</TD>
+                        <TD>{o.msTargetDate||o.targetDate||"—"}</TD>
+                        <TD>{(o.deliverables&&o.deliverables.length>0)?o.deliverables.map(d=>d.name).filter(Boolean).join(", ")||"—":"—"}</TD>
                       </tr>
                     ))}</tbody>
                   </table>
-                ):<div style={{fontSize:12,color:B.textMuted,fontStyle:"italic"}}>No milestones from RFP stage.</div>}
+                ):<div style={{fontSize:12,color:B.textMuted,fontStyle:"italic"}}>No outcomes from RFP stage.</div>}
               </div>
 
               <div style={{background:B.activeBg,border:`1px solid ${B.lightBlue}`,borderLeft:`4px solid ${B.darkBlue}`,
@@ -1991,6 +2392,7 @@ function PageContracting({strategy,rfp,onBack,onActivate,mode,onExit}) {
             </div>
           )}
 
+          {/* ── B: Vendor & Contract ── */}
           {section===1&&(
             <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px"}}>
               <SLine title="Contract & Vendor Details"/>
@@ -2037,6 +2439,7 @@ function PageContracting({strategy,rfp,onBack,onActivate,mode,onExit}) {
             </div>
           )}
 
+          {/* ── C: Vision & Value Realization ── */}
           {section===2&&(
             <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px"}}>
               <SLine title="Final Vision & Strategic Alignment"/>
@@ -2048,137 +2451,232 @@ function PageContracting({strategy,rfp,onBack,onActivate,mode,onExit}) {
                 <div><Lbl req>Problem Statement</Lbl><Txt rows={4} placeholder="Final problem statement." value={form.problemStatement} onChange={v=>set("problemStatement",v)}/></div>
                 <div><Lbl req>Vision Statement</Lbl><Txt rows={4} placeholder="Final vision statement." value={form.visionStatement} onChange={v=>set("visionStatement",v)}/></div>
               </G>
-              <div style={{height:14}}/>
-              <div><Lbl req>Expected Business Outcome</Lbl><Inp placeholder="e.g. Reduce privileged access incidents by 80% within 12 months of go-live" value={form.businessOutcome} onChange={v=>set("businessOutcome",v)}/></div>
 
-              <SLine title="Value Realization Commitments"/>
+              <SLine title="Expected Business Outcomes"/>
               <div style={{background:B.activeBg,border:`1px solid ${B.lightBlue}`,borderLeft:`4px solid ${B.darkBlue}`,
                 borderRadius:4,padding:"10px 14px",marginBottom:16,fontSize:12,color:B.textMid}}>
-                Define the specific, measurable value this project commits to delivering. This is the CISO's vision translated into concrete, trackable outcomes.
+                Define the measurable outcomes this project commits to. Each outcome has <strong>one Value Committed (KPI)</strong> with a measurement method and target date. A matching milestone is auto-created for each outcome in the next section.
               </div>
-              <table style={{width:"100%",borderCollapse:"collapse",marginBottom:4}}>
-                <thead><tr>
-                  <TH w="35%">Value Committed</TH>
-                  <TH w="35%">Measurement Method</TH>
-                  <TH>Target Realization Date</TH>
-                  <TH w="30px"/>
-                </tr></thead>
-                <tbody>{form.valueRealization.map((r,i)=>(
-                  <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
-                    <TD><Inp placeholder="e.g. MFA coverage reaches 95% of all users" value={r.valueCommitted} onChange={v=>setA("valueRealization",i,"valueCommitted",v)}/></TD>
-                    <TD><Inp placeholder="e.g. Monthly IAM audit report" value={r.measurementMethod} onChange={v=>setA("valueRealization",i,"measurementMethod",v)}/></TD>
-                    <TD><Inp type="date" value={r.targetDate} onChange={v=>setA("valueRealization",i,"targetDate",v)}/></TD>
-                    <TD>{form.valueRealization.length>1&&<DelBtn onClick={()=>rem("valueRealization",i)}/>}</TD>
-                  </tr>
-                ))}</tbody>
-              </table>
-              <AddBtn onClick={()=>add("valueRealization",{valueCommitted:"",measurementMethod:"",targetDate:""})} label="Add Value Commitment"/>
+
+              {/* Mode selector */}
+              <div style={{display:"flex",gap:8,marginBottom:16}}>
+                {[
+                  {id:"ai",         label:"✦ AI Suggested"},
+                  {id:"predefined", label:"☰ Predefined List"},
+                  {id:"free",       label:"✎ Free Text"},
+                ].map(m=>(
+                  <button key={m.id} onClick={()=>setOutcomeMode(m.id)} style={{
+                    padding:"8px 16px",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",
+                    background:outcomeMode===m.id?B.darkBlue:B.cardBg,
+                    color:outcomeMode===m.id?"#FFFFFF":B.textMid,
+                    border:`1px solid ${outcomeMode===m.id?B.darkBlue:B.border}`}}>{m.label}</button>
+                ))}
+              </div>
+
+              {/* AI mode */}
+              {outcomeMode==="ai"&&(
+                <div style={{background:B.pageBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"16px 18px",marginBottom:18}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                    <div style={{fontSize:12,fontWeight:700,color:B.deepBlue}}>AI-Suggested Outcomes</div>
+                    <CBadge color={B.midBlue} bg={B.midBlue+"20"}>BASED ON VISION</CBadge>
+                  </div>
+                  <div style={{fontSize:12,color:B.textMid,marginBottom:14,lineHeight:1.5}}>
+                    Generate measurable outcome suggestions from the vision statement above. Review each and add the ones that fit.
+                  </div>
+                  <button onClick={()=>{setAiSuggestions(AI_OUTCOME_SUGGESTIONS);setAiGenerated(true);}}
+                    style={{background:B.midBlue,border:"none",color:"#FFFFFF",borderRadius:5,padding:"9px 18px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:aiGenerated?16:0}}>
+                    ✦ Generate Outcomes from Vision
+                  </button>
+                  {aiGenerated&&(
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      {aiSuggestions.length===0?(
+                        <div style={{fontSize:12,color:B.textMuted,fontStyle:"italic"}}>All suggestions added. Regenerate for more.</div>
+                      ):aiSuggestions.map((s,si)=>(
+                        <div key={si} style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:5,padding:"12px 14px",display:"flex",alignItems:"flex-start",gap:12}}>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:13,fontWeight:600,color:B.textDark,marginBottom:4}}>{s.text}</div>
+                            <div style={{fontSize:11,color:B.textMuted}}>Suggested KPI: <strong style={{color:B.darkBlue}}>{s.kpi}</strong> · Method: {s.method}</div>
+                          </div>
+                          <button onClick={()=>{
+                            addOutcome(newOutcome({outcome:s.text,source:"ai",kpiName:s.kpi,measurementMethod:s.method,msName:s.text}));
+                            setAiSuggestions(prev=>prev.filter((_,j)=>j!==si));
+                          }} style={{background:B.greenLight,border:`1px solid ${B.green}40`,color:B.green,borderRadius:4,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>+ Add</button>
+                          <button onClick={()=>setAiSuggestions(prev=>prev.filter((_,j)=>j!==si))}
+                            style={{background:"none",border:`1px solid ${B.border}`,color:B.textMuted,borderRadius:4,padding:"6px 10px",fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>Dismiss</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Predefined mode */}
+              {outcomeMode==="predefined"&&(
+                <div style={{background:B.pageBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"16px 18px",marginBottom:18}}>
+                  <div style={{fontSize:12,fontWeight:700,color:B.deepBlue,marginBottom:12}}>Select from Predefined Outcomes</div>
+                  <div style={{display:"flex",gap:10,alignItems:"flex-end"}}>
+                    <div style={{flex:1}}>
+                      <Lbl>Outcome</Lbl>
+                      <select value={predefinedPick} onChange={e=>setPredefinedPick(e.target.value)}
+                        style={{width:"100%",boxSizing:"border-box",border:`1px solid ${B.border}`,borderRadius:4,padding:"8px 10px",fontSize:13,color:predefinedPick?B.textDark:B.textMuted,background:B.inputBg,fontFamily:"inherit",outline:"none",cursor:"pointer"}}>
+                        <option value="" disabled>Select an outcome...</option>
+                        <optgroup label="Cyber-Specific">
+                          {PREDEFINED_OUTCOMES.filter(o=>o.category==="Cyber").map((o,i)=><option key={i} value={o.text}>{o.text}</option>)}
+                        </optgroup>
+                        <optgroup label="General Business">
+                          {PREDEFINED_OUTCOMES.filter(o=>o.category==="Business").map((o,i)=><option key={i} value={o.text}>{o.text}</option>)}
+                        </optgroup>
+                      </select>
+                    </div>
+                    <button onClick={()=>{if(predefinedPick){addOutcome(newOutcome({outcome:predefinedPick,source:"predefined",msName:predefinedPick}));setPredefinedPick("");}}}
+                      style={{background:B.darkBlue,border:"none",color:"#FFFFFF",borderRadius:5,padding:"9px 18px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>+ Add Outcome</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Free text mode */}
+              {outcomeMode==="free"&&(
+                <div style={{background:B.pageBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"16px 18px",marginBottom:18}}>
+                  <div style={{fontSize:12,fontWeight:700,color:B.deepBlue,marginBottom:12}}>Add Your Own Outcome</div>
+                  <button onClick={()=>addOutcome(newOutcome({source:"free"}))}
+                    style={{background:B.darkBlue,border:"none",color:"#FFFFFF",borderRadius:5,padding:"9px 18px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add Blank Outcome</button>
+                </div>
+              )}
+
+              {/* Outcomes list */}
+              {form.outcomes.length===0?(
+                <div style={{padding:"32px 20px",textAlign:"center",background:B.pageBg,borderRadius:6,border:`1px dashed ${B.border}`}}>
+                  <div style={{fontSize:13,color:B.textMuted,marginBottom:6}}>No outcomes defined yet.</div>
+                  <div style={{fontSize:11,color:B.textMuted}}>Use one of the three modes above to add measurable outcomes.</div>
+                </div>
+              ):(
+                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  {form.outcomes.map((o,i)=>(
+                    <div key={o.id} style={{border:`1px solid ${B.border}`,borderRadius:6,overflow:"hidden",borderLeft:`4px solid ${B.darkBlue}`}}>
+                      <div style={{background:B.pageBg,padding:"10px 16px",display:"flex",alignItems:"center",gap:10,borderBottom:`1px solid ${B.borderLight}`}}>
+                        <div style={{fontSize:11,fontFamily:"monospace",fontWeight:700,color:B.darkBlue}}>{o.id}</div>
+                        <CBadge color={o.source==="ai"?B.midBlue:o.source==="predefined"?B.darkBlue:B.textMuted} bg={(o.source==="ai"?B.midBlue:o.source==="predefined"?B.darkBlue:B.textMuted)+"20"}>{o.source==="ai"?"✦ AI":o.source==="predefined"?"PREDEFINED":"FREE TEXT"}</CBadge>
+                        <div style={{flex:1}}/>
+                        <DelBtn onClick={()=>remOutcome(i)}/>
+                      </div>
+                      <div style={{padding:"14px 16px"}}>
+                        <Lbl req>Measurable Outcome</Lbl>
+                        <Inp placeholder="e.g. Achieve 95% MFA coverage across all users within 6 months" value={o.outcome} onChange={v=>setOutcome(i,"outcome",v)}/>
+                        <div style={{height:12}}/>
+                        <div style={{fontSize:10,fontWeight:700,color:B.deepBlue,letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:8}}>Value Committed (KPI)</div>
+                        <G cols={3} gap={12}>
+                          <div><Lbl req>KPI Name</Lbl><Inp placeholder="e.g. MFA coverage (%)" value={o.kpiName} onChange={v=>setOutcome(i,"kpiName",v)}/></div>
+                          <div><Lbl req>Measurement Method</Lbl><Inp placeholder="e.g. Monthly IAM audit" value={o.measurementMethod} onChange={v=>setOutcome(i,"measurementMethod",v)}/></div>
+                          <div><Lbl req>Target Date</Lbl><Inp type="date" value={o.targetDate} onChange={v=>setOutcome(i,"targetDate",v)}/></div>
+                        </G>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
+          {/* ── D: Scope ── */}
           {section===3&&(
             <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px"}}>
-              <SLine title="Final Scope"/>
+              <SLine title="Scope"/>
               <div style={{background:B.amberLight,border:`1px solid ${B.amber}40`,borderRadius:4,
                 padding:"10px 14px",marginBottom:18,fontSize:12,color:B.amber}}>
                 Pre-filled from RFP. Finalise to match the awarded contract scope exactly.
               </div>
-              <div><Lbl req>Final In-Scope Description</Lbl><Txt rows={4} value={form.inScope} onChange={v=>set("inScope",v)} placeholder="Final confirmed scope as per the signed contract."/></div>
-              <div style={{height:14}}/>
-              <Lbl>Final Exclusions</Lbl>
-              <table style={{width:"100%",borderCollapse:"collapse",marginBottom:4}}>
-                <thead><tr><TH w="45%">Exclusion Item</TH><TH>Reason / Rationale</TH><TH w="30px"/></tr></thead>
-                <tbody>{form.outOfScope.map((r,i)=>(
-                  <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
-                    <TD><Inp placeholder="What is excluded..." value={r.item} onChange={v=>setA("outOfScope",i,"item",v)}/></TD>
-                    <TD><Inp placeholder="Why it is excluded..." value={r.reason} onChange={v=>setA("outOfScope",i,"reason",v)}/></TD>
-                    <TD>{form.outOfScope.length>1&&<DelBtn onClick={()=>rem("outOfScope",i)}/>}</TD>
-                  </tr>
-                ))}</tbody>
-              </table>
-              <AddBtn onClick={()=>add("outOfScope",{item:"",reason:""})} label="Add Exclusion"/>
-              <div style={{height:14}}/>
-              <div><Lbl>Final Assumptions</Lbl><Txt rows={2} value={form.assumptions} onChange={v=>set("assumptions",v)} placeholder="Final assumptions as agreed with the vendor."/></div>
-
-              <SLine title="Deliverables Register"/>
-              <div style={{background:B.activeBg,border:`1px solid ${B.lightBlue}`,borderLeft:`4px solid ${B.darkBlue}`,
-                borderRadius:4,padding:"10px 14px",marginBottom:14,fontSize:12,color:B.textMid}}>
-                Register every contractual deliverable. Assign a QA Reviewer (technical review) and an Approver (formal sign-off). Status defaults to <strong>Not Started</strong> and becomes editable in the Execution phase.
-              </div>
-              <div style={{overflowX:"auto"}}>
-                <table style={{width:"100%",borderCollapse:"collapse",marginBottom:4,minWidth:900}}>
-                  <thead><tr>
-                    <TH w="6%">ID</TH>
-                    <TH w="14%">Deliverable Name</TH>
-                    <TH w="18%">Description</TH>
-                    <TH w="9%">Type</TH>
-                    <TH w="12%">Linked Milestone</TH>
-                    <TH w="10%">Due Date</TH>
-                    <TH w="10%">Responsible Party</TH>
-                    <TH w="9%">QA Reviewer</TH>
-                    <TH w="9%">Approver</TH>
-                    <TH w="30px"/>
-                  </tr></thead>
-                  <tbody>{form.deliverables.map((d,i)=>(
-                    <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
-                      <TD><div style={{fontSize:11,fontFamily:"monospace",color:B.darkBlue,fontWeight:700}}>{autoId("D",form.deliverables,i)}</div></TD>
-                      <TD><Inp placeholder="Deliverable name..." value={d.name} onChange={v=>setA("deliverables",i,"name",v)}/></TD>
-                      <TD><Inp placeholder="Brief description..." value={d.description} onChange={v=>setA("deliverables",i,"description",v)}/></TD>
-                      <TD><Sel small options={DELIV_TYPES} value={d.type} onChange={v=>setA("deliverables",i,"type",v)} placeholder="Type..."/></TD>
-                      <TD><Inp placeholder="Milestone name..." value={d.milestone} onChange={v=>setA("deliverables",i,"milestone",v)}/></TD>
-                      <TD><Inp type="date" value={d.dueDate} onChange={v=>setA("deliverables",i,"dueDate",v)}/></TD>
-                      <TD><Inp placeholder="Team / role..." value={d.responsibleParty} onChange={v=>setA("deliverables",i,"responsibleParty",v)}/></TD>
-                      <TD><Inp placeholder="Reviewer..." value={d.qaReviewer} onChange={v=>setA("deliverables",i,"qaReviewer",v)}/></TD>
-                      <TD><Inp placeholder="Approver..." value={d.approver} onChange={v=>setA("deliverables",i,"approver",v)}/></TD>
-                      <TD><DelBtn onClick={()=>form.deliverables.length>1&&rem("deliverables",i)}/></TD>
-                    </tr>
-                  ))}</tbody>
-                </table>
-              </div>
-              <AddBtn onClick={()=>add("deliverables",{id:`D-${String(form.deliverables.length+1).padStart(3,"0")}`,name:"",description:"",type:"",milestone:"",dueDate:"",responsibleParty:"",qaReviewer:"",approver:"",status:"Not Started"})} label="Add Deliverable"/>
+              <div><Lbl req>In-Scope Description</Lbl><Txt rows={5} value={form.inScope} onChange={v=>set("inScope",v)} placeholder="Final confirmed scope as per the signed contract."/></div>
+              <div style={{height:16}}/>
+              <div><Lbl req>Assumptions</Lbl><Txt rows={4} value={form.assumptions} onChange={v=>set("assumptions",v)} placeholder="Final assumptions as agreed with the vendor."/></div>
             </div>
           )}
 
+          {/* ── E: Milestones & Deliverables ── */}
           {section===4&&(
             <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px"}}>
-              <SLine title="Confirmed Project Milestones"/>
-              <div style={{background:B.amberLight,border:`1px solid ${B.amber}40`,borderRadius:4,
-                padding:"10px 14px",marginBottom:18,fontSize:12,color:B.amber}}>
-                Pre-filled from RFP. Confirm start and end dates for each milestone as per the signed contract. The Gantt chart below updates automatically.
+              <SLine title="Milestones & Deliverables"/>
+              <div style={{background:B.activeBg,border:`1px solid ${B.lightBlue}`,borderLeft:`4px solid ${B.darkBlue}`,
+                borderRadius:4,padding:"10px 14px",marginBottom:16,fontSize:12,color:B.textMid}}>
+                One milestone is auto-created per outcome defined in the Vision section — each milestone maps <strong>1-to-1</strong> to its Value Committed (KPI). Set the milestone dates and weight, then add the deliverables that achieve it.
               </div>
-              <div style={{overflowX:"auto",marginBottom:8}}>
-                <table style={{width:"100%",borderCollapse:"collapse",marginBottom:4,minWidth:800}}>
-                  <thead><tr>
-                    <TH w="22%">Milestone Name</TH>
-                    <TH w="13%">Start Date</TH>
-                    <TH w="13%">End Date</TH>
-                    <TH w="8%">Weight %</TH>
-                    <TH w="22%">Linked Deliverables</TH>
-                    <TH>Status</TH>
-                    <TH w="30px"/>
-                  </tr></thead>
-                  <tbody>{form.milestones.map((m,i)=>(
-                    <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
-                      <TD><Inp placeholder="Milestone name..." value={m.name} onChange={v=>setA("milestones",i,"name",v)}/></TD>
-                      <TD><Inp type="date" value={m.startDate} onChange={v=>setA("milestones",i,"startDate",v)}/></TD>
-                      <TD><Inp type="date" value={m.endDate} onChange={v=>setA("milestones",i,"endDate",v)}/></TD>
-                      <TD><Inp placeholder="e.g. 25" value={m.weight} onChange={v=>setA("milestones",i,"weight",v)}/></TD>
-                      <TD><Inp placeholder="D-001, D-002..." value={m.linkedDeliverables} onChange={v=>setA("milestones",i,"linkedDeliverables",v)}/></TD>
-                      <TD>
-                        <Sel small options={MS_STATUSES} value={m.status} onChange={v=>setA("milestones",i,"status",v)} placeholder="Status..."/>
-                      </TD>
-                      <TD><DelBtn onClick={()=>form.milestones.length>1&&rem("milestones",i)}/></TD>
-                    </tr>
-                  ))}</tbody>
-                </table>
-              </div>
-              <AddBtn onClick={()=>add("milestones",{name:"",startDate:"",endDate:"",weight:"",linkedDeliverables:"",status:"Not Started"})} label="Add Milestone"/>
+
+              {form.outcomes.length===0?(
+                <div style={{padding:"32px 20px",textAlign:"center",background:B.pageBg,borderRadius:6,border:`1px dashed ${B.border}`}}>
+                  <div style={{fontSize:13,color:B.textMuted,marginBottom:6}}>No milestones yet.</div>
+                  <div style={{fontSize:11,color:B.textMuted}}>Define outcomes in the <strong>Vision &amp; Value</strong> section first — each one creates a milestone here automatically.</div>
+                </div>
+              ):(
+                <div style={{display:"flex",flexDirection:"column",gap:16}}>
+                  {form.outcomes.map((o,oi)=>(
+                    <div key={o.id} style={{border:`1px solid ${B.border}`,borderRadius:6,overflow:"hidden"}}>
+                      {/* Milestone ↔ KPI header */}
+                      <div style={{background:B.deepBlue,padding:"12px 16px"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                          <CBadge color="#FFFFFF" bg="#FFFFFF25">MILESTONE {oi+1}</CBadge>
+                          <div style={{color:"#FFFFFF50",fontSize:14}}>↔</div>
+                          <CBadge color="#FFFFFF" bg="#FFFFFF25">KPI: {o.kpiName||"(unnamed)"}</CBadge>
+                          <div style={{flex:1}}/>
+                          <div style={{color:B.headerText,fontSize:11,fontFamily:"monospace"}}>{o.id}</div>
+                        </div>
+                        <div style={{fontSize:11,color:B.headerText,lineHeight:1.5}}>Outcome: {o.outcome||"(not yet defined)"}</div>
+                      </div>
+                      {/* Milestone detail fields */}
+                      <div style={{padding:"14px 16px",background:B.pageBg,borderBottom:`1px solid ${B.border}`}}>
+                        <G cols={4} gap={12}>
+                          <div><Lbl req>Milestone Name</Lbl><Inp placeholder="e.g. Pilot deployment complete" value={o.msName} onChange={v=>setOutcome(oi,"msName",v)}/></div>
+                          <div><Lbl req>Start Date</Lbl><Inp type="date" value={o.msStart} onChange={v=>setOutcome(oi,"msStart",v)}/></div>
+                          <div><Lbl req>End Date</Lbl><Inp type="date" value={o.msEnd} onChange={v=>setOutcome(oi,"msEnd",v)}/></div>
+                          <div><Lbl req>Weight %</Lbl><Inp placeholder="e.g. 25" value={o.msWeight} onChange={v=>setOutcome(oi,"msWeight",v)}/></div>
+                        </G>
+                        <div style={{height:10}}/>
+                        <div style={{maxWidth:200}}><Lbl>Status</Lbl><Sel small options={MS_STATUSES} value={o.msStatus} onChange={v=>setOutcome(oi,"msStatus",v)} placeholder="Status..."/></div>
+                      </div>
+                      {/* Deliverables under this milestone */}
+                      <div style={{padding:"14px 16px"}}>
+                        <div style={{fontSize:10,fontWeight:700,color:B.deepBlue,letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:10}}>Deliverables for this Milestone ({o.deliverables.length})</div>
+                        {o.deliverables.length===0?(
+                          <div style={{fontSize:12,color:B.textMuted,fontStyle:"italic",padding:"8px 0 12px"}}>No deliverables yet. Add the deliverables that achieve this milestone.</div>
+                        ):(
+                          <div style={{overflowX:"auto"}}>
+                            <table style={{width:"100%",borderCollapse:"collapse",marginBottom:4,minWidth:820}}>
+                              <thead><tr>
+                                <TH w="7%">ID</TH>
+                                <TH w="22%">Name</TH>
+                                <TH w="12%">Type</TH>
+                                <TH w="13%">Due Date</TH>
+                                <TH w="16%">QA Reviewer</TH>
+                                <TH w="16%">Approver</TH>
+                                <TH w="12%">Status</TH>
+                                <TH w="30px"/>
+                              </tr></thead>
+                              <tbody>{o.deliverables.map((d,di)=>(
+                                <tr key={d.id} style={{background:di%2===0?B.cardBg:B.pageBg}}>
+                                  <TD><div style={{fontSize:11,fontFamily:"monospace",color:B.darkBlue,fontWeight:700}}>{d.id}</div></TD>
+                                  <TD><Inp placeholder="Deliverable name..." value={d.name} onChange={v=>setDeliv(oi,di,"name",v)}/></TD>
+                                  <TD><Sel small options={DELIV_TYPES} value={d.type} onChange={v=>setDeliv(oi,di,"type",v)} placeholder="Type..."/></TD>
+                                  <TD><Inp type="date" value={d.dueDate} onChange={v=>setDeliv(oi,di,"dueDate",v)}/></TD>
+                                  <TD><Inp placeholder="Reviewer..." value={d.qaReviewer} onChange={v=>setDeliv(oi,di,"qaReviewer",v)}/></TD>
+                                  <TD><Inp placeholder="Approver..." value={d.approver} onChange={v=>setDeliv(oi,di,"approver",v)}/></TD>
+                                  <TD><Sel small options={DELIV_STATUSES} value={d.status} onChange={v=>setDeliv(oi,di,"status",v)} placeholder="Status..."/></TD>
+                                  <TD><DelBtn onClick={()=>remDeliv(oi,di)}/></TD>
+                                </tr>
+                              ))}</tbody>
+                            </table>
+                          </div>
+                        )}
+                        <AddBtn onClick={()=>addDeliv(oi)} label="Add Deliverable"/>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <SLine title="Project Gantt Chart"/>
-              <GanttChart milestones={form.milestones}/>
+              <GanttChart milestones={form.outcomes.map(o=>({name:o.msName||o.kpiName||o.id,startDate:o.msStart,endDate:o.msEnd,weight:o.msWeight,status:o.msStatus}))}/>
             </div>
           )}
 
+          {/* ── F: Project Team ── */}
           {section===5&&(
             <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px"}}>
               <SLine title="Project Team"/>
@@ -2193,104 +2691,63 @@ function PageContracting({strategy,rfp,onBack,onActivate,mode,onExit}) {
               </G>
 
               <SLine title="Core Project Team"/>
-              <table style={{width:"100%",borderCollapse:"collapse",marginBottom:4}}>
-                <thead><tr>
-                  <TH w="25%">Full Name</TH>
-                  <TH w="25%">Role</TH>
-                  <TH w="25%">Organisation</TH>
-                  <TH>% Allocation</TH>
-                  <TH w="30px"/>
-                </tr></thead>
-                <tbody>{form.team.map((r,i)=>(
-                  <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
-                    <TD><Inp placeholder="Full name..." value={r.name} onChange={v=>setA("team",i,"name",v)}/></TD>
-                    <TD><Inp placeholder="e.g. Technical Lead" value={r.role} onChange={v=>setA("team",i,"role",v)}/></TD>
-                    <TD><Inp placeholder="e.g. Vendor / Internal" value={r.organisation} onChange={v=>setA("team",i,"organisation",v)}/></TD>
-                    <TD><Inp placeholder="e.g. 80%" value={r.allocation} onChange={v=>setA("team",i,"allocation",v)}/></TD>
-                    <TD>{form.team.length>1&&<DelBtn onClick={()=>rem("team",i)}/>}</TD>
-                  </tr>
-                ))}</tbody>
-              </table>
-              <AddBtn onClick={()=>add("team",{name:"",role:"",organisation:"",allocation:""})} label="Add Team Member"/>
-            </div>
-          )}
-
-          {section===6&&(
-            <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px"}}>
-              <SLine title="Risk Register"/>
-              <div style={{background:B.activeBg,border:`1px solid ${B.lightBlue}`,borderLeft:`4px solid ${B.midBlue}`,
+              <div style={{background:B.activeBg,border:`1px solid ${B.lightBlue}`,borderLeft:`4px solid ${B.darkBlue}`,
                 borderRadius:4,padding:"10px 14px",marginBottom:16,fontSize:12,color:B.textMid}}>
-                Risk Rating is auto-calculated from Likelihood × Impact. You may override the rating with a comment if needed.
+                Add internal team members and assign each one measurable KPIs. The goal is to ensure internal staff own part of the delivery and build capability on the job, rather than passively receiving vendor output.
               </div>
-
-              <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-                {["Critical","High","Medium","Low"].map((lvl,i)=>(
-                  <CBadge key={i} color={ratingColor(lvl)} bg={ratingBg(lvl)}>{lvl}</CBadge>
-                ))}
-                <span style={{fontSize:11,color:B.textMuted,alignSelf:"center",marginLeft:4}}>Rating matrix: H×H=Critical · H×M or M×H=High · M×M=Medium · any Low=Low</span>
-              </div>
-
               <div style={{display:"flex",flexDirection:"column",gap:12}}>
-                {form.risks.map((r,i)=>{
-                  const autoRating = r.likelihood&&r.impact ? RISK_MATRIX[`${r.likelihood}-${r.impact}`] : null;
-                  const finalRating = r.overrideRating || autoRating || "—";
-                  return(
-                    <div key={i} style={{border:`1px solid ${B.border}`,borderRadius:6,overflow:"hidden",
-                      borderLeft:`4px solid ${autoRating?ratingColor(finalRating):B.border}`}}>
-                      <div style={{background:B.pageBg,padding:"10px 16px",display:"flex",
-                        alignItems:"center",gap:12,borderBottom:`1px solid ${B.borderLight}`}}>
-                        <div style={{fontSize:11,fontFamily:"monospace",fontWeight:700,color:B.darkBlue}}>
-                          {autoId("R",form.risks,i)}
+                {form.team.map((member,ti)=>(
+                  <div key={ti} style={{border:`1px solid ${B.border}`,borderRadius:6,overflow:"hidden"}}>
+                    <div style={{background:B.pageBg,padding:"12px 16px",borderBottom:`1px solid ${B.borderLight}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:12}}>
+                        <div style={{flex:1}}>
+                          <G cols={2} gap={12}>
+                            <div><Lbl req>Full Name</Lbl><Inp placeholder="Team member name..." value={member.name} onChange={v=>setA("team",ti,"name",v)}/></div>
+                            <div><Lbl req>Role</Lbl><Inp placeholder="e.g. Technical Lead, Analyst" value={member.role} onChange={v=>setA("team",ti,"role",v)}/></div>
+                          </G>
                         </div>
-                        <div style={{flex:1}}/>
-                        {finalRating!=="—"&&(
-                          <CBadge color={ratingColor(finalRating)} bg={ratingBg(finalRating)}>
-                            {r.overrideRating?"OVERRIDE: ":""}{finalRating.toUpperCase()}
-                          </CBadge>
-                        )}
-                        <CBadge color={statusColor(r.status||"Open")} bg={statusBg(r.status||"Open")}>{(r.status||"Open").toUpperCase()}</CBadge>
-                        {form.risks.length>1&&<DelBtn onClick={()=>rem("risks",i)}/>}
-                      </div>
-                      <div style={{padding:"14px 16px"}}>
-                        <G cols={3} gap={12}>
-                          <div><Lbl req>Category</Lbl><Sel options={RISK_CATS} value={r.category} onChange={v=>setA("risks",i,"category",v)} placeholder="Select..."/></div>
-                          <div><Lbl req>Likelihood</Lbl><Sel options={RISK_LEVELS} value={r.likelihood} onChange={v=>setA("risks",i,"likelihood",v)} placeholder="Select..."/></div>
-                          <div><Lbl req>Impact</Lbl><Sel options={RISK_LEVELS} value={r.impact} onChange={v=>setA("risks",i,"impact",v)} placeholder="Select..."/></div>
-                        </G>
-                        <div style={{height:10}}/>
-                        <div><Lbl req>Risk Description</Lbl><Txt rows={2} placeholder="Describe the risk clearly..." value={r.description} onChange={v=>setA("risks",i,"description",v)}/></div>
-                        <div style={{height:10}}/>
-                        <G cols={2} gap={12}>
-                          <div><Lbl>Mitigation Plan</Lbl><Txt rows={2} placeholder="How will this risk be mitigated or managed?" value={r.mitigation} onChange={v=>setA("risks",i,"mitigation",v)}/></div>
-                          <div>
-                            <G cols={2} gap={10}>
-                              <div><Lbl>Risk Owner</Lbl><Inp placeholder="Name or role..." value={r.owner} onChange={v=>setA("risks",i,"owner",v)}/></div>
-                              <div><Lbl>Status</Lbl><Sel options={RISK_STATUSES} value={r.status} onChange={v=>setA("risks",i,"status",v)} placeholder="Status..."/></div>
-                            </G>
-                            <div style={{height:10}}/>
-                            <div><Lbl>Override Rating</Lbl>
-                              <Sel options={["Critical","High","Medium","Low"]} value={r.overrideRating} onChange={v=>setA("risks",i,"overrideRating",v)} placeholder="Override auto-rating..."/>
-                            </div>
-                            {r.overrideRating&&(
-                              <div style={{marginTop:8}}>
-                                <Lbl req>Override Comment</Lbl>
-                                <Inp placeholder="Reason for overriding the calculated rating..." value={r.overrideComment} onChange={v=>setA("risks",i,"overrideComment",v)}/>
-                              </div>
-                            )}
-                          </div>
-                        </G>
+                        {form.team.length>1&&<div style={{paddingTop:18}}><DelBtn onClick={()=>rem("team",ti)}/></div>}
                       </div>
                     </div>
-                  );
-                })}
+                    <div style={{padding:"14px 16px"}}>
+                      <div style={{fontSize:10,fontWeight:700,color:B.deepBlue,letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:10}}>
+                        Learning & Delivery KPIs ({(member.kpis||[]).length})
+                      </div>
+                      {(member.kpis||[]).length===0?(
+                        <div style={{fontSize:12,color:B.textMuted,fontStyle:"italic",padding:"6px 0 10px"}}>No KPIs yet. Add at least one KPI so this person owns part of the delivery.</div>
+                      ):(
+                        <div style={{overflowX:"auto"}}>
+                          <table style={{width:"100%",borderCollapse:"collapse",marginBottom:4,minWidth:680}}>
+                            <thead><tr>
+                              <TH w="44%">KPI / Objective</TH>
+                              <TH w="32%">Measurement Method</TH>
+                              <TH w="18%">Target Date</TH>
+                              <TH w="30px"/>
+                            </tr></thead>
+                            <tbody>{member.kpis.map((k,ki)=>(
+                              <tr key={ki} style={{background:ki%2===0?B.cardBg:B.pageBg}}>
+                                <TD><Inp placeholder="e.g. Lead the design of the access model" value={k.description} onChange={v=>setTeamKpi(ti,ki,"description",v)}/></TD>
+                                <TD><Inp placeholder="e.g. Design doc approved by architect" value={k.measurementMethod} onChange={v=>setTeamKpi(ti,ki,"measurementMethod",v)}/></TD>
+                                <TD><Inp type="date" value={k.targetDate} onChange={v=>setTeamKpi(ti,ki,"targetDate",v)}/></TD>
+                                <TD><DelBtn onClick={()=>remTeamKpi(ti,ki)}/></TD>
+                              </tr>
+                            ))}</tbody>
+                          </table>
+                        </div>
+                      )}
+                      <AddBtn onClick={()=>addTeamKpi(ti)} label="Add KPI"/>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <AddBtn onClick={()=>add("risks",{id:`R-${String(form.risks.length+1).padStart(3,"0")}`,category:"",description:"",likelihood:"",impact:"",overrideRating:"",overrideComment:"",mitigation:"",owner:"",status:"Open"})} label="Add Risk"/>
+              <AddBtn onClick={()=>add("team",{name:"",role:"",kpis:[{description:"",measurementMethod:"",targetDate:""}]})} label="Add Team Member"/>
             </div>
           )}
 
-          {section===7&&(
+          {/* ── G: Dependencies & Integration ── */}
+          {section===6&&(
             <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px"}}>
-              <SLine title="Project Dependencies"/>
+              <SLine title="Cross-Project Dependencies"/>
               <div style={{background:B.amberLight,border:`1px solid ${B.amber}40`,borderRadius:4,
                 padding:"10px 14px",marginBottom:18,fontSize:12,color:B.amber}}>
                 Pre-filled from the Strategy phase dependency flags. Extend and update as required now that the project is confirmed.
@@ -2329,11 +2786,42 @@ function PageContracting({strategy,rfp,onBack,onActivate,mode,onExit}) {
                 </table>
               </div>
               <AddBtn onClick={()=>add("dependencies",{initiative:"",nature:"",riskIfDelayed:"",severity:"",owner:"",linkedStatus:""})} label="Add Dependency"/>
+
+              <SLine title="Integration Points"/>
+              <div style={{background:B.activeBg,border:`1px solid ${B.lightBlue}`,borderLeft:`4px solid ${B.darkBlue}`,
+                borderRadius:4,padding:"10px 14px",marginBottom:16,fontSize:12,color:B.textMid}}>
+                Identify which other teams this project must integrate with and the specific integration points. These will be monitored throughout the project to ensure alignment.
+              </div>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",marginBottom:4,minWidth:820}}>
+                  <thead><tr>
+                    <TH w="20%">Team to Integrate With</TH>
+                    <TH w="26%">Integration Point</TH>
+                    <TH w="24%">Nature / What is Exchanged</TH>
+                    <TH w="15%">Owner</TH>
+                    <TH>Status</TH>
+                    <TH w="30px"/>
+                  </tr></thead>
+                  <tbody>{form.integrationPoints.map((ip,i)=>(
+                    <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
+                      <TD><Inp placeholder="e.g. Network Security team" value={ip.team} onChange={v=>setA("integrationPoints",i,"team",v)}/></TD>
+                      <TD><Inp placeholder="e.g. Directory service / API" value={ip.integrationPoint} onChange={v=>setA("integrationPoints",i,"integrationPoint",v)}/></TD>
+                      <TD><Inp placeholder="e.g. Identity sync, shared config" value={ip.nature} onChange={v=>setA("integrationPoints",i,"nature",v)}/></TD>
+                      <TD><Inp placeholder="Owner name..." value={ip.owner} onChange={v=>setA("integrationPoints",i,"owner",v)}/></TD>
+                      <TD><Sel small options={["To Be Established","In Progress","Established","Blocked"]} value={ip.status} onChange={v=>setA("integrationPoints",i,"status",v)} placeholder="Status..."/></TD>
+                      <TD>{form.integrationPoints.length>1&&<DelBtn onClick={()=>rem("integrationPoints",i)}/>}</TD>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+              <AddBtn onClick={()=>add("integrationPoints",{team:"",integrationPoint:"",nature:"",owner:"",status:"To Be Established"})} label="Add Integration Point"/>
             </div>
           )}
 
-          {section===8&&(
+          {/* ── H: Submit & Activate ── */}
+          {section===7&&(
             <div>
+              {/* KPI summary */}
               <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:10,marginBottom:20}}>
                 {kpiSummary.map((item,i)=>(
                   <div key={i} style={{background:B.cardBg,border:`1px solid ${B.border}`,
@@ -2346,15 +2834,16 @@ function PageContracting({strategy,rfp,onBack,onActivate,mode,onExit}) {
                 ))}
               </div>
 
+              {/* Readiness checklist */}
               <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"20px 24px",marginBottom:16}}>
                 <SLine title="Activation Readiness Checklist"/>
                 {[
                   {label:"Contract details entered",   done:!!(form.vendorName&&form.contractRef&&form.contractValue)},
-                  {label:"Vision & value realization defined", done:!!(form.visionStatement&&form.valueRealization[0]?.valueCommitted)},
-                  {label:"Deliverables register complete", done:form.deliverables.length>0&&form.deliverables[0].name!==""},
-                  {label:"Milestones confirmed with dates", done:form.milestones.length>0&&form.milestones[0].startDate!==""},
-                  {label:"Project Manager assigned",    done:!!form.pm},
-                  {label:"At least one risk identified",done:form.risks.length>0&&form.risks[0].description!==""},
+                  {label:"Outcomes & KPIs defined",    done:form.outcomes.length>0&&!!form.outcomes[0].outcome&&!!form.outcomes[0].kpiName},
+                  {label:"Milestones have dates",      done:form.outcomes.length>0&&form.outcomes.every(o=>o.msStart&&o.msEnd)},
+                  {label:"Deliverables added",         done:form.outcomes.some(o=>o.deliverables.length>0&&o.deliverables[0].name!=="")},
+                  {label:"Project Manager assigned",   done:!!form.pm},
+                  {label:"Team members have KPIs",     done:form.team.some(m=>m.name&&(m.kpis||[]).some(k=>k.description))},
                 ].map((item,i)=>(
                   <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",
                     borderBottom:`1px solid ${B.borderLight}`}}>
@@ -2372,6 +2861,7 @@ function PageContracting({strategy,rfp,onBack,onActivate,mode,onExit}) {
                 ))}
               </div>
 
+              {/* Automated Reporting Settings (Coming Soon) */}
               <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"20px 24px",marginBottom:16}}>
                 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
                   <div style={{fontSize:11,fontWeight:700,color:B.deepBlue,letterSpacing:"0.08em",textTransform:"uppercase"}}>Automated Reporting Settings</div>
@@ -2407,12 +2897,14 @@ function PageContracting({strategy,rfp,onBack,onActivate,mode,onExit}) {
                 <AddBtn onClick={()=>add("reportRecipients",{name:"",email:"",role:""})} label="Add Recipient"/>
               </div>
 
+              {/* Note field */}
               <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,
                 padding:"20px 24px",marginBottom:16}}>
                 <SLine title="Submission Note to CISO (optional)"/>
                 <Txt rows={3} placeholder="Add any context or notes for the CISO before project activation..." value={form.note} onChange={v=>set("note",v)}/>
               </div>
 
+              {/* Workflow */}
               <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"20px 24px",marginBottom:20}}>
                 <SLine title="Approval & Activation Workflow"/>
                 <div style={{display:"flex",alignItems:"stretch",gap:0}}>
@@ -2458,6 +2950,7 @@ function PageContracting({strategy,rfp,onBack,onActivate,mode,onExit}) {
             </div>
           )}
 
+          {/* Prev / Next */}
           <div style={{display:"flex",justifyContent:"space-between",marginTop:22}}>
             {section>0
               ?<button onClick={()=>setSection(s=>s-1)} style={{background:B.cardBg,border:`1px solid ${B.border}`,
@@ -2479,13 +2972,16 @@ function PageContracting({strategy,rfp,onBack,onActivate,mode,onExit}) {
   );
 }
 
+
 // ══ WEEKLY UPDATE PAGE — HELPERS & CONSTANTS ════════════════════════════════
+// Week number helper
 function getWeekInfo(date = new Date()) {
   const d = new Date(date);
   const monday = new Date(d);
   monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
+  // ISO week number
   const tmp = new Date(d.getFullYear(),0,1);
   const week = Math.ceil((((d - tmp) / 86400000) + tmp.getDay() + 1) / 7);
   const fmt = (x) => x.toLocaleDateString("en-GB",{day:"2-digit",month:"short"});
@@ -2498,6 +2994,7 @@ function getWeekInfo(date = new Date()) {
   };
 }
 
+// ── Auto-derive overall project status ────────────────────────────────────────
 function autoStatus(projectPct, expectedPct, risks) {
   const openCritical = risks.filter(r => r.status === "Open" && (r.overrideRating || RISK_MATRIX[`${r.likelihood}-${r.impact}`]) === "Critical").length;
   const openHigh     = risks.filter(r => r.status === "Open" && (r.overrideRating || RISK_MATRIX[`${r.likelihood}-${r.impact}`]) === "High").length;
@@ -2508,6 +3005,7 @@ function autoStatus(projectPct, expectedPct, risks) {
   return "On Track";
 }
 
+
 function expectedProgress(startDate, endDate, asOf = new Date()) {
   if (!startDate || !endDate) return 0;
   const s = new Date(startDate), e = new Date(endDate);
@@ -2517,8 +3015,9 @@ function expectedProgress(startDate, endDate, asOf = new Date()) {
   return Math.round((elapsed / total) * 100);
 }
 
+
 const WU_SECTIONS = [
-  {id:"header",     label:"Week Header"},
+  {id:"header",     label:"Week CPMHeader"},
   {id:"progress",   label:"Progress Update"},
   {id:"narrative",  label:"Weekly Narrative"},
   {id:"risks",      label:"Risks & Issues"},
@@ -2526,6 +3025,7 @@ const WU_SECTIONS = [
   {id:"submit",     label:"Submit"},
 ];
 
+// ── Mock data: a single active project for demo ───────────────────────────────
 const MOCK_PROJECT = {
   id:"CPM-2024-011",
   name:"PAM Solution Deployment",
@@ -2535,21 +3035,45 @@ const MOCK_PROJECT = {
   contractStart:"2025-01-15",
   contractEnd:"2025-12-30",
   contractValue:"850000",
-  deliverables:[
-    {id:"D-001",name:"As-Is Architecture Report",     milestone:"Discovery & Assessment", dueDate:"2025-03-15", qaReviewer:"Ahmed Rashid",   approver:"CISO"},
-    {id:"D-002",name:"Gap Analysis Document",          milestone:"Discovery & Assessment", dueDate:"2025-03-30", qaReviewer:"Ahmed Rashid",   approver:"CISO"},
-    {id:"D-003",name:"PAM Target Architecture",        milestone:"Design Phase",            dueDate:"2025-05-15", qaReviewer:"Sarah Al-Mansouri", approver:"Domain Lead"},
-    {id:"D-004",name:"Implementation Plan",            milestone:"Design Phase",            dueDate:"2025-06-01", qaReviewer:"Sarah Al-Mansouri", approver:"Domain Lead"},
-    {id:"D-005",name:"PAM Solution Deployed (Pilot)",  milestone:"Pilot Deployment",        dueDate:"2025-08-15", qaReviewer:"Omar Al-Hashimi", approver:"CISO"},
-    {id:"D-006",name:"UAT Results & Sign-off",         milestone:"Pilot Deployment",        dueDate:"2025-09-30", qaReviewer:"Omar Al-Hashimi", approver:"CISO"},
-    {id:"D-007",name:"Full Production Rollout",        milestone:"Production Rollout",      dueDate:"2025-11-30", qaReviewer:"Omar Al-Hashimi", approver:"CISO"},
-    {id:"D-008",name:"Handover & Training Materials",  milestone:"Production Rollout",      dueDate:"2025-12-15", qaReviewer:"Sarah Al-Mansouri", approver:"Domain Lead"},
-  ],
-  milestones:[
-    {name:"Discovery & Assessment", weight:15, startDate:"2025-01-15", endDate:"2025-03-30"},
-    {name:"Design Phase",            weight:20, startDate:"2025-04-01", endDate:"2025-06-01"},
-    {name:"Pilot Deployment",        weight:30, startDate:"2025-06-15", endDate:"2025-09-30"},
-    {name:"Production Rollout",      weight:35, startDate:"2025-10-01", endDate:"2025-12-15"},
+  // Outcome-centric structure (aligned with value realization). Each outcome carries
+  // its 1-1 milestone (with KPI + weight) and the deliverables that achieve it.
+  outcomes:[
+    {
+      id:"O-001", outcome:"Establish a complete privileged-access baseline", kpiName:"Privileged accounts inventoried (%)",
+      measurementMethod:"Discovery audit report", targetDate:"2025-03-30",
+      msName:"Discovery & Assessment", msWeight:"15", msStart:"2025-01-15", msEnd:"2025-03-30", msStatus:"Completed",
+      deliverables:[
+        {id:"D-001",name:"As-Is Architecture Report", type:"Report",   dueDate:"2025-03-15", qaReviewer:"Ahmed Rashid", approver:"CISO", status:"Approved"},
+        {id:"D-002",name:"Gap Analysis Document",      type:"Document", dueDate:"2025-03-30", qaReviewer:"Ahmed Rashid", approver:"CISO", status:"Approved"},
+      ],
+    },
+    {
+      id:"O-002", outcome:"Design a target PAM architecture aligned to the vision", kpiName:"Design sign-off achieved",
+      measurementMethod:"Architecture board approval", targetDate:"2025-06-01",
+      msName:"Design Phase", msWeight:"20", msStart:"2025-04-01", msEnd:"2025-06-01", msStatus:"In Progress",
+      deliverables:[
+        {id:"D-003",name:"PAM Target Architecture", type:"Document", dueDate:"2025-05-15", qaReviewer:"Sarah Al-Mansouri", approver:"Domain Lead", status:"Approved"},
+        {id:"D-004",name:"Implementation Plan",     type:"Document", dueDate:"2025-06-01", qaReviewer:"Sarah Al-Mansouri", approver:"Domain Lead", status:"In Progress"},
+      ],
+    },
+    {
+      id:"O-003", outcome:"Validate the solution with a controlled pilot", kpiName:"Pilot UAT pass rate (%)",
+      measurementMethod:"UAT results sign-off", targetDate:"2025-09-30",
+      msName:"Pilot Deployment", msWeight:"30", msStart:"2025-06-15", msEnd:"2025-09-30", msStatus:"Not Started",
+      deliverables:[
+        {id:"D-005",name:"PAM Solution Deployed (Pilot)", type:"System", dueDate:"2025-08-15", qaReviewer:"Omar Al-Hashimi", approver:"CISO", status:"Not Started"},
+        {id:"D-006",name:"UAT Results & Sign-off",        type:"Report", dueDate:"2025-09-30", qaReviewer:"Omar Al-Hashimi", approver:"CISO", status:"Not Started"},
+      ],
+    },
+    {
+      id:"O-004", outcome:"Roll out PAM to full production and hand over to operations", kpiName:"Privileged accounts vaulted (%)",
+      measurementMethod:"Monthly PAM audit report", targetDate:"2025-12-15",
+      msName:"Production Rollout", msWeight:"35", msStart:"2025-10-01", msEnd:"2025-12-15", msStatus:"Not Started",
+      deliverables:[
+        {id:"D-007",name:"Full Production Rollout",       type:"System",   dueDate:"2025-11-30", qaReviewer:"Omar Al-Hashimi",   approver:"CISO", status:"Not Started"},
+        {id:"D-008",name:"Handover & Training Materials", type:"Training", dueDate:"2025-12-15", qaReviewer:"Sarah Al-Mansouri", approver:"Domain Lead", status:"Not Started"},
+      ],
+    },
   ],
   initialRisks:[
     {id:"R-001",category:"Vendor",      description:"Vendor resource availability during Q3 holiday season may delay deployment",  likelihood:"Medium",impact:"High",  mitigation:"Resource plan agreed in advance; backup engineers identified", owner:"Rania Yousef",  status:"Open",       overrideRating:"",overrideComment:""},
@@ -2561,6 +3085,7 @@ const MOCK_PROJECT = {
   ],
 };
 
+// ── Mock history of previous weeks ────────────────────────────────────────────
 const MOCK_HISTORY = [
   { weekNumber:1, year:2025, label:"Week 1 · 13 Jan – 19 Jan",  status:"On Track", projectPct:5,  narrative:"Project kicked off. Vendor onboarding completed and team mobilised. Initial discovery workshops scheduled with all in-scope business units." },
   { weekNumber:2, year:2025, label:"Week 2 · 20 Jan – 26 Jan",  status:"On Track", projectPct:12, narrative:"Discovery workshops underway. Stakeholder interviews completed for 60% of in-scope teams. As-Is architecture report drafting started." },
@@ -2570,6 +3095,7 @@ const MOCK_HISTORY = [
   { weekNumber:6, year:2025, label:"Week 6 · 17 Feb – 23 Feb",  status:"On Track", projectPct:45, narrative:"Target architecture design 50% complete. Integration touchpoints with Network Segmentation project mapped. CISO review scheduled for next week." },
 ];
 
+// ── Project Completion Gauge ──────────────────────────────────────────────────
 const ProjectGauge = ({pct,expected,status}) => {
   const sc = statusColor(status);
   const gap = expected - pct;
@@ -2605,25 +3131,72 @@ const ProjectGauge = ({pct,expected,status}) => {
   );
 };
 
+
 function PageWeeklyUpdate({project=MOCK_PROJECT,onBack,onSubmit,onExit}) {
-  const [view,setView]       = useState("current");
+  const [view,setView]       = useState("current"); // "current" | "history"
   const [historyWeek,setHistoryWeek] = useState(null);
   const [section,setSection] = useState(0);
   const [submitted,setSubmitted] = useState(false);
+  const readOnly = view === "history";
 
   const week = useMemo(()=>getWeekInfo(),[]);
   const expectedPct = useMemo(()=>expectedProgress(project.contractStart,project.contractEnd),[project]);
 
+  // Derive a starting progress % from a deliverable's recorded status (for demo realism
+  // and so an in-flight project shows meaningful prior progress in the weekly update).
+  const pctFromStatus = (s) => {
+    switch(s){
+      case "Approved":         return 100;
+      case "Completed":        return 100;
+      case "Submitted for QA": return 75;
+      case "In Progress":      return 50;
+      case "Not Started":      return 0;
+      default:                 return 0;
+    }
+  };
+
+  // Normalise the project into an outcome-centric structure for progress tracking.
+  // Prefers project.outcomes / contractData.outcomes (new model); falls back to the
+  // legacy flat milestones + deliverables shape for older projects.
+  const baseOutcomes = useMemo(()=>{
+    const src = (project.outcomes && project.outcomes.length>0)
+      ? project.outcomes
+      : (project.contractData?.outcomes && project.contractData.outcomes.length>0)
+        ? project.contractData.outcomes
+        : null;
+    if(src){
+      return src.map(o=>({
+        id:o.id, outcome:o.outcome||"", kpiName:o.kpiName||"", measurementMethod:o.measurementMethod||"", targetDate:o.targetDate||"",
+        msName:o.msName||o.kpiName||o.id, msWeight:Number(o.msWeight||0),
+        msStart:o.msStart||"", msEnd:o.msEnd||o.msTargetDate||"",
+        deliverables:(o.deliverables||[]).map(d=>{
+          const seeded = pctFromStatus(d.status);
+          return {
+            id:d.id, name:d.name||"", dueDate:d.dueDate||"", qaReviewer:d.qaReviewer||"", approver:d.approver||"",
+            previousPct:seeded, thisWeekPct:seeded, status:d.status||"Not Started", notes:"",
+          };
+        }),
+      }));
+    }
+    // Legacy fallback: group flat deliverables by milestone name
+    return (project.milestones||[]).map((m,i)=>({
+      id:`O-${String(i+1).padStart(3,"0")}`, outcome:"", kpiName:m.name, measurementMethod:"", targetDate:m.endDate||"",
+      msName:m.name, msWeight:Number(m.weight||0), msStart:m.startDate||"", msEnd:m.endDate||"",
+      deliverables:(project.deliverables||[]).filter(d=>d.milestone===m.name).map(d=>{
+        const seeded = pctFromStatus(d.status);
+        return {
+          id:d.id, name:d.name, dueDate:d.dueDate||"", qaReviewer:d.qaReviewer||"", approver:d.approver||"",
+          previousPct:seeded, thisWeekPct:seeded, status:d.status||"Not Started", notes:"",
+        };
+      }),
+    }));
+  },[project]);
+
+  // Form state - one weekly update record
   const [form,setForm] = useState(()=>({
     weekLabel: week.label,
     submissionDate: new Date().toISOString().split("T")[0],
-    deliverables: project.deliverables.map(d => ({
-      ...d,
-      previousPct: 0,
-      thisWeekPct: 0,
-      status: "Not Started",
-      notes: "",
-    })),
+    outcomes: baseOutcomes,
     completedNarrative:"",
     plannedNarrative:"",
     decisionsNeeded:"",
@@ -2638,23 +3211,33 @@ function PageWeeklyUpdate({project=MOCK_PROJECT,onBack,onSubmit,onExit}) {
   const setA = (k,i,f2,v)   => setForm(f => {const a=[...f[k]];a[i]={...a[i],[f2]:v};return{...f,[k]:a};});
   const add  = (k,t)         => setForm(f => ({...f,[k]:[...f[k],t]}));
   const rem  = (k,i)         => setForm(f => ({...f,[k]:f[k].filter((_,j)=>j!==i)}));
+  // Update a deliverable's progress within an outcome
+  const setDelivPct = (oi,di,f2,v) => setForm(f=>{
+    const o=[...f.outcomes]; const d=[...o[oi].deliverables]; d[di]={...d[di],[f2]:v}; o[oi]={...o[oi],deliverables:d}; return {...f,outcomes:o};
+  });
 
+  // ── Calculations ──
+  // Each outcome's milestone % = average of its deliverables' this-week %.
   const milestoneSummary = useMemo(()=>{
-    return project.milestones.map(ms => {
-      const linked = form.deliverables.filter(d => d.milestone === ms.name);
-      const totalProgress = linked.reduce((sum,d) => sum + Number(d.thisWeekPct||0), 0);
-      const pct = linked.length>0 ? Math.round(totalProgress/linked.length) : 0;
-      const allCompleted = linked.length>0 && linked.every(d => Number(d.thisWeekPct)>=100);
-      const anyStarted   = linked.some(d => Number(d.thisWeekPct)>0);
+    return form.outcomes.map(o => {
+      const ds = o.deliverables||[];
+      const totalProgress = ds.reduce((sum,d) => sum + Number(d.thisWeekPct||0), 0);
+      const pct = ds.length>0 ? Math.round(totalProgress/ds.length) : 0;
+      const allCompleted = ds.length>0 && ds.every(d => Number(d.thisWeekPct)>=100);
+      const anyStarted   = ds.some(d => Number(d.thisWeekPct)>0);
       const status = allCompleted ? "Completed" : anyStarted ? "In Progress" : "Not Started";
-      const expected = expectedProgress(ms.startDate, ms.endDate);
-      return {...ms, deliverableCount:linked.length, pct, status, expected};
+      const expected = expectedProgress(o.msStart, o.msEnd);
+      return {id:o.id, name:o.msName, kpiName:o.kpiName, outcome:o.outcome, weight:Number(o.msWeight||0), deliverableCount:ds.length, pct, status, expected};
     });
-  },[form.deliverables,project.milestones]);
+  },[form.outcomes]);
 
   const projectPct = useMemo(()=>{
     const totalWeight = milestoneSummary.reduce((s,m)=>s+Number(m.weight||0),0);
-    if(totalWeight===0) return 0;
+    if(totalWeight===0){
+      // No weights set — fall back to simple average across milestones
+      if(milestoneSummary.length===0) return 0;
+      return Math.round(milestoneSummary.reduce((s,m)=>s+m.pct,0)/milestoneSummary.length);
+    }
     const weighted = milestoneSummary.reduce((s,m)=>s+(Number(m.weight||0)*m.pct),0);
     return Math.round(weighted/totalWeight);
   },[milestoneSummary]);
@@ -2665,15 +3248,19 @@ function PageWeeklyUpdate({project=MOCK_PROJECT,onBack,onSubmit,onExit}) {
   const openRisks      = form.risks.filter(r=>r.status==="Open").length;
   const escalatedIssues= form.risks.filter(r=>r.status==="Escalated to Issue").length;
   const openActions    = form.actions.filter(a=>a.status==="Open"||a.status==="In Progress"||a.status==="Blocked").length;
-  const deliverablesCompletedThisWeek = form.deliverables.filter(d => Number(d.thisWeekPct)>=100 && Number(d.previousPct)<100).length;
+  const allDeliverables = form.outcomes.flatMap(o=>o.deliverables);
+  const deliverablesCompletedThisWeek = allDeliverables.filter(d => Number(d.thisWeekPct)>=100 && Number(d.previousPct)<100).length;
 
+  const cpmToday = new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+
+  // ── HISTORY VIEW ──
   if(view==="history" && historyWeek){
     return(
       <div style={{fontFamily:"'Segoe UI','Trebuchet MS',system-ui,sans-serif",background:B.pageBg,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
         <div style={{background:B.deepBlue,padding:"0 28px",display:"flex",alignItems:"center",justifyContent:"space-between",height:48,flexShrink:0}}>
           <div style={{display:"flex",alignItems:"center",gap:24}}>
             {onExit && <button onClick={onExit} title="Back to Suite" style={{background:"#FFFFFF20",border:"1px solid #FFFFFF40",color:"#FFFFFF",borderRadius:4,padding:"3px 10px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>⊞ Suite</button>}
-            <div style={{color:"#FFFFFF",fontWeight:800,fontSize:15,letterSpacing:"0.14em"}}>CPM</div>
+      <div style={{color:"#FFFFFF",fontWeight:800,fontSize:15,letterSpacing:"0.14em"}}>CPM</div>
             <div style={{width:1,height:20,background:"#FFFFFF30"}}/>
             <div style={{color:B.headerText,fontSize:12}}>Weekly Update — Historical Record</div>
             <div style={{width:1,height:20,background:"#FFFFFF30"}}/>
@@ -2711,10 +3298,11 @@ function PageWeeklyUpdate({project=MOCK_PROJECT,onBack,onSubmit,onExit}) {
   return(
     <div style={{fontFamily:"'Segoe UI','Trebuchet MS',system-ui,sans-serif",background:B.pageBg,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
 
+      {/* ── CPMHeader ── */}
       <div style={{background:B.deepBlue,padding:"0 28px",display:"flex",alignItems:"center",justifyContent:"space-between",height:48,flexShrink:0}}>
         <div style={{display:"flex",alignItems:"center",gap:24}}>
           {onExit && <button onClick={onExit} title="Back to Suite" style={{background:"#FFFFFF20",border:"1px solid #FFFFFF40",color:"#FFFFFF",borderRadius:4,padding:"3px 10px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>⊞ Suite</button>}
-          <div style={{color:"#FFFFFF",fontWeight:800,fontSize:15,letterSpacing:"0.14em"}}>CPM</div>
+      <div style={{color:"#FFFFFF",fontWeight:800,fontSize:15,letterSpacing:"0.14em"}}>CPM</div>
           <div style={{width:1,height:20,background:"#FFFFFF30"}}/>
           <div style={{color:B.headerText,fontSize:12}}>Weekly Project Update</div>
           <div style={{width:1,height:20,background:"#FFFFFF30"}}/>
@@ -2726,6 +3314,7 @@ function PageWeeklyUpdate({project=MOCK_PROJECT,onBack,onSubmit,onExit}) {
         </div>
       </div>
 
+      {/* ── Sub-bar with history selector ── */}
       <div style={{background:"#FFFFFF",borderBottom:`1px solid ${B.border}`,padding:"0 28px",display:"flex",alignItems:"center",justifyContent:"space-between",height:48,flexShrink:0}}>
         <button onClick={onBack} style={{background:"none",border:"none",color:B.textMid,fontSize:13,cursor:"pointer",fontFamily:"inherit",fontWeight:500}}>← Back to Portfolio</button>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -2741,6 +3330,7 @@ function PageWeeklyUpdate({project=MOCK_PROJECT,onBack,onSubmit,onExit}) {
         </div>
       </div>
 
+      {/* ── Page subtitle ── */}
       <div style={{background:"#FFFFFF",padding:"7px 28px",borderBottom:`1px solid ${B.borderLight}`}}>
         <span style={{fontSize:12,color:B.textMuted}}>
           {week.label} · PM: <strong style={{color:B.textDark}}>{project.pm}</strong> · Submission cadence: Weekly, due by Monday 09:00
@@ -2749,9 +3339,11 @@ function PageWeeklyUpdate({project=MOCK_PROJECT,onBack,onSubmit,onExit}) {
 
       <SectionTimeline sections={WU_SECTIONS} section={section} setSection={setSection}/>
 
+      {/* ══ MAIN CONTENT ══ */}
       <div style={{flex:1,overflowY:"auto",padding:"24px 28px 48px"}}>
         <div style={{maxWidth:1140,margin:"0 auto"}}>
 
+          {/* ── A: Week CPMHeader ── */}
           {section===0&&(
             <div>
               <div style={{marginBottom:20}}>
@@ -2800,90 +3392,102 @@ function PageWeeklyUpdate({project=MOCK_PROJECT,onBack,onSubmit,onExit}) {
             </div>
           )}
 
+          {/* ── B: Progress Update ── */}
           {section===1&&(
             <div>
               <div style={{marginBottom:16}}>
                 <ProjectGauge pct={projectPct} expected={expectedPct} status={finalStatus}/>
               </div>
 
-              <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px",marginBottom:16}}>
-                <SLine title="Milestones — Auto-Calculated Completion"/>
-                <div style={{background:B.activeBg,border:`1px solid ${B.lightBlue}`,borderLeft:`4px solid ${B.midBlue}`,borderRadius:4,padding:"10px 14px",marginBottom:14,fontSize:12,color:B.textMid}}>
-                  Milestone completion is calculated as the average of its linked deliverables' progress. Project % is the weighted average of all milestones by their weight.
-                </div>
-                <table style={{width:"100%",borderCollapse:"collapse"}}>
-                  <thead><tr>
-                    <TH w="28%">Milestone</TH>
-                    <TH w="10%">Weight</TH>
-                    <TH w="10%">Deliverables</TH>
-                    <TH w="22%">Completion</TH>
-                    <TH w="14%">Status</TH>
-                    <TH>Expected vs Actual</TH>
-                  </tr></thead>
-                  <tbody>{milestoneSummary.map((m,i)=>{
-                    const onTrack = m.pct >= m.expected;
-                    return(
-                      <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
-                        <TD><div style={{fontWeight:600}}>{m.name}</div></TD>
-                        <TD><div style={{fontWeight:700,color:B.darkBlue}}>{m.weight}%</div></TD>
-                        <TD>{m.deliverableCount}</TD>
-                        <TD>
-                          <div style={{display:"flex",alignItems:"center",gap:8}}>
-                            <div style={{fontSize:14,fontWeight:800,color:onTrack?B.green:B.amber,minWidth:40}}>{m.pct}%</div>
-                            <div style={{flex:1}}><ProgressBar pct={m.pct} color={onTrack?B.green:B.amber}/></div>
-                          </div>
-                        </TD>
-                        <TD><CBadge color={statusColor(m.status)} bg={statusBg(m.status)}>{m.status.toUpperCase()}</CBadge></TD>
-                        <TD>
-                          <span style={{fontSize:11,color:B.textMuted}}>
-                            Expected {m.expected}% · {m.pct>=m.expected?<span style={{color:B.green,fontWeight:700}}>+{m.pct-m.expected}%</span>:<span style={{color:B.red,fontWeight:700}}>{m.pct-m.expected}%</span>}
-                          </span>
-                        </TD>
-                      </tr>
-                    );
-                  })}</tbody>
-                </table>
+              <div style={{background:B.activeBg,border:`1px solid ${B.lightBlue}`,borderLeft:`4px solid ${B.midBlue}`,borderRadius:4,padding:"10px 14px",marginBottom:16,fontSize:12,color:B.textMid}}>
+                Progress is tracked against each <strong>outcome and its Value Committed (KPI)</strong>. Move the deliverable sliders below — each milestone's completion is the average of its deliverables, and overall project % is the weighted average of milestones by weight.
               </div>
 
-              <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px"}}>
-                <SLine title="Deliverables — Update Progress for This Week"/>
-                <div style={{overflowX:"auto"}}>
-                  <table style={{width:"100%",borderCollapse:"collapse",minWidth:1000}}>
-                    <thead><tr>
-                      <TH w="7%">ID</TH>
-                      <TH w="20%">Deliverable</TH>
-                      <TH w="14%">Milestone</TH>
-                      <TH w="10%">Due Date</TH>
-                      <TH w="8%">Prev %</TH>
-                      <TH w="16%">This Week %</TH>
-                      <TH w="13%">Status</TH>
-                      <TH>Notes</TH>
-                    </tr></thead>
-                    <tbody>{form.deliverables.map((d,i)=>(
-                      <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
-                        <TD><div style={{fontSize:11,fontFamily:"monospace",color:B.darkBlue,fontWeight:700}}>{d.id}</div></TD>
-                        <TD><div style={{fontWeight:600}}>{d.name}</div></TD>
-                        <TD><div style={{fontSize:11,color:B.textMid}}>{d.milestone}</div></TD>
-                        <TD><div style={{fontSize:11,color:B.textMuted}}>{d.dueDate}</div></TD>
-                        <TD><div style={{fontSize:12,color:B.textMuted}}>{d.previousPct}%</div></TD>
-                        <TD>
-                          <div style={{display:"flex",alignItems:"center",gap:8}}>
-                            <input type="range" min="0" max="100" step="5" value={d.thisWeekPct||0}
-                              onChange={e=>setA("deliverables",i,"thisWeekPct",Number(e.target.value))}
-                              style={{flex:1,accentColor:B.darkBlue}}/>
-                            <div style={{minWidth:36,fontSize:12,fontWeight:700,color:B.darkBlue,textAlign:"right"}}>{d.thisWeekPct||0}%</div>
-                          </div>
-                        </TD>
-                        <TD><Sel small options={DELIV_STATUSES} value={d.status} onChange={v=>setA("deliverables",i,"status",v)} placeholder="Status..."/></TD>
-                        <TD><Inp placeholder="Brief note..." value={d.notes} onChange={v=>setA("deliverables",i,"notes",v)}/></TD>
-                      </tr>
-                    ))}</tbody>
-                  </table>
+              {form.outcomes.length===0?(
+                <div style={{padding:"32px 20px",textAlign:"center",background:B.cardBg,borderRadius:6,border:`1px dashed ${B.border}`}}>
+                  <div style={{fontSize:13,color:B.textMuted}}>No outcomes defined for this project.</div>
                 </div>
-              </div>
+              ):(
+                <div style={{display:"flex",flexDirection:"column",gap:16}}>
+                  {form.outcomes.map((o,oi)=>{
+                    const ms = milestoneSummary[oi] || {pct:0,status:"Not Started",expected:0};
+                    const onTrack = ms.pct >= ms.expected;
+                    return(
+                      <div key={o.id||oi} style={{border:`1px solid ${B.border}`,borderRadius:6,overflow:"hidden"}}>
+                        {/* Milestone ↔ KPI header with live completion */}
+                        <div style={{background:B.deepBlue,padding:"14px 18px"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                            <CBadge color="#FFFFFF" bg="#FFFFFF25">MILESTONE {oi+1}</CBadge>
+                            <div style={{color:"#FFFFFF50",fontSize:14}}>↔</div>
+                            <CBadge color="#FFFFFF" bg="#FFFFFF25">KPI: {o.kpiName||"(unnamed)"}</CBadge>
+                            {o.msWeight>0&&<CBadge color={B.headerText} bg="#FFFFFF18">WEIGHT {o.msWeight}%</CBadge>}
+                            <div style={{flex:1}}/>
+                            <CBadge color={statusColor(ms.status)} bg={statusColor(ms.status)+"30"}>{ms.status.toUpperCase()}</CBadge>
+                          </div>
+                          <div style={{fontSize:13,fontWeight:600,color:"#FFFFFF",marginBottom:4}}>{o.msName}</div>
+                          {o.outcome&&<div style={{fontSize:11,color:B.headerText,lineHeight:1.5,marginBottom:12}}>Outcome: {o.outcome}</div>}
+                          {/* Live milestone completion bar */}
+                          <div style={{display:"flex",alignItems:"center",gap:12}}>
+                            <div style={{fontSize:24,fontWeight:800,color:onTrack?"#7FE3A0":"#FFD27F",minWidth:64}}>{ms.pct}%</div>
+                            <div style={{flex:1}}>
+                              <div style={{position:"relative",height:10,background:"#FFFFFF20",borderRadius:5,overflow:"hidden"}}>
+                                <div style={{width:`${Math.min(ms.pct,100)}%`,height:"100%",background:onTrack?"#7FE3A0":"#FFD27F",borderRadius:5,transition:"width 0.4s"}}/>
+                                {ms.expected>0&&ms.expected<=100&&<div style={{position:"absolute",left:`${ms.expected}%`,top:-2,bottom:-2,width:2,background:"#FFFFFF"}}/>}
+                              </div>
+                              <div style={{fontSize:10,color:B.headerText,marginTop:4}}>
+                                Expected {ms.expected}% · {ms.pct>=ms.expected?<span style={{color:"#7FE3A0",fontWeight:700}}>▲ {ms.pct-ms.expected}% ahead</span>:<span style={{color:"#FF9F9F",fontWeight:700}}>▼ {ms.expected-ms.pct}% behind</span>}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Deliverables — editable sliders */}
+                        <div style={{padding:"14px 18px",background:B.cardBg}}>
+                          <div style={{fontSize:10,fontWeight:700,color:B.deepBlue,letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:10}}>Deliverables — Update Progress for This Week ({o.deliverables.length})</div>
+                          {o.deliverables.length===0?(
+                            <div style={{fontSize:12,color:B.textMuted,fontStyle:"italic",padding:"4px 0"}}>No deliverables linked to this milestone.</div>
+                          ):(
+                            <div style={{overflowX:"auto"}}>
+                              <table style={{width:"100%",borderCollapse:"collapse",minWidth:880}}>
+                                <thead><tr>
+                                  <TH w="7%">ID</TH>
+                                  <TH w="24%">Deliverable</TH>
+                                  <TH w="11%">Due Date</TH>
+                                  <TH w="8%">Prev %</TH>
+                                  <TH w="18%">This Week %</TH>
+                                  <TH w="14%">Status</TH>
+                                  <TH>Notes</TH>
+                                </tr></thead>
+                                <tbody>{o.deliverables.map((d,di)=>(
+                                  <tr key={d.id||di} style={{background:di%2===0?B.cardBg:B.pageBg}}>
+                                    <TD nowrap><div style={{fontSize:11,fontFamily:"monospace",color:B.darkBlue,fontWeight:700}}>{d.id}</div></TD>
+                                    <TD><div style={{fontWeight:600}}>{d.name}</div></TD>
+                                    <TD nowrap><div style={{fontSize:11,color:B.textMuted}}>{d.dueDate||"—"}</div></TD>
+                                    <TD nowrap><div style={{fontSize:12,color:B.textMuted}}>{d.previousPct}%</div></TD>
+                                    <TD>
+                                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                        <input type="range" min="0" max="100" step="5" value={d.thisWeekPct||0} disabled={readOnly}
+                                          onChange={e=>setDelivPct(oi,di,"thisWeekPct",Number(e.target.value))}
+                                          style={{flex:1,accentColor:B.darkBlue}}/>
+                                        <div style={{minWidth:36,fontSize:12,fontWeight:700,color:B.darkBlue,textAlign:"right"}}>{d.thisWeekPct||0}%</div>
+                                      </div>
+                                    </TD>
+                                    <TD><Sel small options={DELIV_STATUSES} value={d.status} onChange={v=>setDelivPct(oi,di,"status",v)} placeholder="Status..."/></TD>
+                                    <TD><Inp placeholder="Brief note..." value={d.notes} onChange={v=>setDelivPct(oi,di,"notes",v)}/></TD>
+                                  </tr>
+                                ))}</tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
+          {/* ── C: Weekly Narrative ── */}
           {section===2&&(
             <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px"}}>
               <SLine title="Weekly Narrative"/>
@@ -2905,6 +3509,7 @@ function PageWeeklyUpdate({project=MOCK_PROJECT,onBack,onSubmit,onExit}) {
             </div>
           )}
 
+          {/* ── D: Risks & Issues ── */}
           {section===3&&(
             <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px"}}>
               <SLine title="Risk & Issue Register"/>
@@ -2971,8 +3576,10 @@ function PageWeeklyUpdate({project=MOCK_PROJECT,onBack,onSubmit,onExit}) {
             </div>
           )}
 
+          {/* ── E: Dependencies & Action Items ── */}
           {section===4&&(
             <div>
+              {/* Cross-project dependencies */}
               <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px",marginBottom:16}}>
                 <SLine title="Cross-Project Dependencies"/>
                 <div style={{background:B.amberLight,border:`1px solid ${B.amber}40`,borderRadius:4,padding:"10px 14px",marginBottom:16,fontSize:12,color:B.amber}}>
@@ -3007,6 +3614,7 @@ function PageWeeklyUpdate({project=MOCK_PROJECT,onBack,onSubmit,onExit}) {
                 <AddBtn onClick={()=>add("dependencies",{initiative:"",nature:"",riskIfDelayed:"",severity:"",owner:"",linkedStatus:"",weekUpdate:""})} label="Add Dependency"/>
               </div>
 
+              {/* Intra-week action items */}
               <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"24px 28px"}}>
                 <SLine title="Action Items — Cross-Team Interactions"/>
                 <div style={{background:B.activeBg,border:`1px solid ${B.lightBlue}`,borderLeft:`4px solid ${B.midBlue}`,borderRadius:4,padding:"10px 14px",marginBottom:16,fontSize:12,color:B.textMid}}>
@@ -3032,7 +3640,7 @@ function PageWeeklyUpdate({project=MOCK_PROJECT,onBack,onSubmit,onExit}) {
                       </tr></thead>
                       <tbody>{form.actions.map((a,i)=>(
                         <tr key={i} style={{background:i%2===0?B.cardBg:B.pageBg}}>
-                          <TD><div style={{fontSize:11,fontFamily:"monospace",color:B.darkBlue,fontWeight:700}}>{a.id}</div></TD>
+                          <TD nowrap><div style={{fontSize:11,fontFamily:"monospace",color:B.darkBlue,fontWeight:700}}>{a.id}</div></TD>
                           <TD><Inp placeholder="What needs to happen..." value={a.description} onChange={v=>setA("actions",i,"description",v)}/></TD>
                           <TD><Inp placeholder="Person responsible..." value={a.owner} onChange={v=>setA("actions",i,"owner",v)}/></TD>
                           <TD><Inp placeholder="e.g. Legal, InfoSec..." value={a.team} onChange={v=>setA("actions",i,"team",v)}/></TD>
@@ -3050,12 +3658,15 @@ function PageWeeklyUpdate({project=MOCK_PROJECT,onBack,onSubmit,onExit}) {
             </div>
           )}
 
+          {/* ── F: Submit ── */}
           {section===5&&(
             <div>
+              {/* Auto-summary banner */}
               <div style={{marginBottom:16}}>
                 <ProjectGauge pct={projectPct} expected={expectedPct} status={finalStatus}/>
               </div>
 
+              {/* Summary KPI tiles */}
               <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:20}}>
                 {[
                   {label:"Project Completion",       value:`${projectPct}%`,                color:statusColor(finalStatus)},
@@ -3071,10 +3682,11 @@ function PageWeeklyUpdate({project=MOCK_PROJECT,onBack,onSubmit,onExit}) {
                 ))}
               </div>
 
+              {/* Submission readiness checklist */}
               <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"20px 24px",marginBottom:16}}>
                 <SLine title="Submission Readiness"/>
                 {[
-                  {label:"Deliverable progress updated",         done:form.deliverables.some(d=>Number(d.thisWeekPct)>0)},
+                  {label:"Deliverable progress updated",         done:allDeliverables.some(d=>Number(d.thisWeekPct)>0)},
                   {label:"Weekly narrative written",              done:!!form.completedNarrative&&!!form.plannedNarrative},
                   {label:"Risks reviewed",                        done:form.risks.length>0},
                   {label:"Status override comment (if applicable)", done:!form.statusOverride||!!form.statusOverrideComment},
@@ -3087,6 +3699,7 @@ function PageWeeklyUpdate({project=MOCK_PROJECT,onBack,onSubmit,onExit}) {
                 ))}
               </div>
 
+              {/* Automated reporting notice */}
               <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"20px 24px",marginBottom:16}}>
                 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
                   <div style={{fontSize:11,fontWeight:700,color:B.deepBlue,letterSpacing:"0.08em",textTransform:"uppercase"}}>Automated Email Report</div>
@@ -3106,6 +3719,7 @@ function PageWeeklyUpdate({project=MOCK_PROJECT,onBack,onSubmit,onExit}) {
                 </div>
               </div>
 
+              {/* Submit */}
               {submitted?(
                 <div style={{background:B.greenLight,border:`2px solid ${B.green}`,borderRadius:6,padding:"24px 28px",textAlign:"center"}}>
                   <div style={{fontSize:26,marginBottom:8}}>✓</div>
@@ -3121,6 +3735,7 @@ function PageWeeklyUpdate({project=MOCK_PROJECT,onBack,onSubmit,onExit}) {
             </div>
           )}
 
+          {/* Prev / Next */}
           <div style={{display:"flex",justifyContent:"space-between",marginTop:22}}>
             {section>0?<button onClick={()=>setSection(s=>s-1)} style={{background:B.cardBg,border:`1px solid ${B.border}`,color:B.textMid,padding:"9px 22px",borderRadius:4,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>← Previous</button>:<div/>}
             {section<WU_SECTIONS.length-1&&<button onClick={()=>setSection(s=>s+1)} style={{background:B.darkBlue,border:"none",color:"#FFFFFF",padding:"9px 24px",borderRadius:4,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Next: {WU_SECTIONS[section+1].label} →</button>}
@@ -3131,15 +3746,18 @@ function PageWeeklyUpdate({project=MOCK_PROJECT,onBack,onSubmit,onExit}) {
   );
 }
 
+
+
 // ══ PAGE: WEEKLY REPORTS HISTORY ═════════════════════════════════════════════
 function PageWeeklyReportsHistory({project,history,onBack,onSubmitNew,onViewWeek,onExit}) {
   const isClosed = project?.status === "Closed";
   return(
     <div style={{fontFamily:"'Segoe UI','Trebuchet MS',system-ui,sans-serif",background:B.pageBg,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
+      {/* CPMHeader */}
       <div style={{background:B.deepBlue,padding:"0 28px",display:"flex",alignItems:"center",justifyContent:"space-between",height:48,flexShrink:0}}>
         <div style={{display:"flex",alignItems:"center",gap:24}}>
           {onExit && <button onClick={onExit} title="Back to Suite" style={{background:"#FFFFFF20",border:"1px solid #FFFFFF40",color:"#FFFFFF",borderRadius:4,padding:"3px 10px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>⊞ Suite</button>}
-          <div style={{color:"#FFFFFF",fontWeight:800,fontSize:15,letterSpacing:"0.14em"}}>CPM</div>
+      <div style={{color:"#FFFFFF",fontWeight:800,fontSize:15,letterSpacing:"0.14em"}}>CPM</div>
           <div style={{width:1,height:20,background:"#FFFFFF30"}}/>
           <div style={{color:B.headerText,fontSize:12}}>Weekly Reports History</div>
           <div style={{width:1,height:20,background:"#FFFFFF30"}}/>
@@ -3148,6 +3766,7 @@ function PageWeeklyReportsHistory({project,history,onBack,onSubmitNew,onViewWeek
         <CBadge color={isClosed?B.textMuted:B.green} bg={(isClosed?B.textMuted:B.green)+"30"}>{isClosed?"CLOSED PROJECT":"ACTIVE PROJECT"}</CBadge>
       </div>
 
+      {/* Sub-bar */}
       <div style={{background:"#FFFFFF",borderBottom:`1px solid ${B.border}`,padding:"0 28px",display:"flex",alignItems:"center",justifyContent:"space-between",height:48,flexShrink:0}}>
         <button onClick={onBack} style={{background:"none",border:"none",color:B.textMid,fontSize:13,cursor:"pointer",fontFamily:"inherit",fontWeight:500}}>← Back to Portfolio</button>
         {!isClosed&&(
@@ -3158,6 +3777,7 @@ function PageWeeklyReportsHistory({project,history,onBack,onSubmitNew,onViewWeek
       <div style={{flex:1,overflowY:"auto",padding:"24px 28px 48px"}}>
         <div style={{maxWidth:1100,margin:"0 auto"}}>
 
+          {/* Project summary banner */}
           <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"20px 24px",marginBottom:16}}>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
               <div style={{fontSize:11,fontWeight:700,color:B.deepBlue,letterSpacing:"0.08em",textTransform:"uppercase"}}>Project Summary</div>
@@ -3179,6 +3799,7 @@ function PageWeeklyReportsHistory({project,history,onBack,onSubmitNew,onViewWeek
             </div>
           </div>
 
+          {/* Reports list */}
           <div style={{background:B.cardBg,border:`1px solid ${B.border}`,borderRadius:6,padding:"20px 24px"}}>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
               <div style={{fontSize:11,fontWeight:700,color:B.deepBlue,letterSpacing:"0.08em",textTransform:"uppercase"}}>All Weekly Reports ({history.length})</div>
@@ -3227,34 +3848,33 @@ function PageWeeklyReportsHistory({project,history,onBack,onSubmitNew,onViewWeek
 }
 
 // ══ ROOT APP ═════════════════════════════════════════════════════════════════
+
 function CPMApp({ onExit, sharedInitiatives, upsertInitiative, patchInitiative }) {
   const [page,          setPage]         = useState("landing");
   const [viewing,       setViewing]      = useState(null);
   const [rfpItem,       setRfpItem]      = useState(null);
   const [contractItem,  setContractItem] = useState(null);
-  const [contractMode,  setContractMode] = useState(null);
+  const [contractMode,  setContractMode] = useState(null); // null | "new-active" | "new-closed"
   const [weeklyProject, setWeeklyProject]= useState(null);
   const [reportsProject,setReportsProject]=useState(null);
-
-  const sharedAsCpm = useMemo(() => {
-    return (sharedInitiatives || [])
+  // Pipeline & projects are DERIVED from the shared canonical store and merged with
+  // the CPM-only seed data. Writes route back through the shared store.
+  const sharedAsCpm = useMemo(
+    () => (sharedInitiatives || [])
       .filter(rec => rec.status === "ENDORSED" || rec.cpmPhase)
-      .map(rec => toCpmItem(rec));
-  }, [sharedInitiatives]);
-
-  const sharedPipeline = useMemo(() => sharedAsCpm.filter(c => c.phase === "Strategy" || c.phase === "RFP"), [sharedAsCpm]);
-  const sharedProjects = useMemo(() => sharedAsCpm.filter(c => c.phase === "Active" || c.phase === "Closed"), [sharedAsCpm]);
-
+      .map(rec => toCpmItem(rec)),
+    [sharedInitiatives]
+  );
   const pipeline = useMemo(() => {
-    const sharedIds = new Set(sharedPipeline.map(s => s.id));
-    return [...sharedPipeline, ...INIT_PIPELINE.filter(p => !sharedIds.has(p.id))];
-  }, [sharedPipeline]);
-
+    const shared = sharedAsCpm.filter(c => c.phase === "Strategy" || c.phase === "RFP");
+    const ids = new Set(shared.map(s => s.id));
+    return [...shared, ...INIT_PIPELINE.filter(p => !ids.has(p.id))];
+  }, [sharedAsCpm]);
   const projects = useMemo(() => {
-    const sharedIds = new Set(sharedProjects.map(s => s.id));
-    return [...sharedProjects, ...INIT_PROJECTS.filter(p => !sharedIds.has(p.id))];
-  }, [sharedProjects]);
-
+    const shared = sharedAsCpm.filter(c => c.phase === "Active" || c.phase === "Closed");
+    const ids = new Set(shared.map(s => s.id));
+    return [...shared, ...INIT_PROJECTS.filter(p => !ids.has(p.id))];
+  }, [sharedAsCpm]);
   const setPipeline = (updater) => {
     const next = typeof updater === "function" ? updater(pipeline) : updater;
     next.forEach(item => syncCpmItem(item, upsertInitiative, sharedInitiatives));
@@ -3264,30 +3884,38 @@ function CPMApp({ onExit, sharedInitiatives, upsertInitiative, patchInitiative }
     next.forEach(item => syncCpmItem(item, upsertInitiative, sharedInitiatives));
   };
 
+  // ── Helpers to generate fresh IDs and skeletons for "new" creation paths ──
   const genId = () => "CPM-" + new Date().getFullYear() + "-" + String(Math.floor(Math.random()*900)+100);
-  const todayLocal = new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+  const cpmToday = new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
   const blankPipelineRecord = (phase) => ({
     id: genId(), name: "", domain: "", phase, score: 0,
-    owner: "", budget: "", submitted: todayLocal, pillar: "",
+    owner: "", budget: "", submitted: cpmToday, pillar: "",
     status: phase==="Strategy" ? "Pending CISO Review" : "RFP Draft",
     frameworks: [], problemStatement: "", visionStatement: "",
     businessOutcome: "", inScope: "", assumptions: "",
     milestones: [], kpis: [], depRisks: [],
   });
 
+  // ── Strategy handlers ──
   const handleSubmitStrategy = (newItem) => {
-    syncCpmItem(newItem, upsertInitiative, sharedInitiatives);
+    setPipeline(prev => [newItem, ...prev]);
     setPage("landing");
   };
 
+  // ── RFP handlers ──
   const handleSaveRFP = (updatedItem) => {
-    syncCpmItem(updatedItem, upsertInitiative, sharedInitiatives);
+    setPipeline(prev => {
+      const exists = prev.some(p => p.id === updatedItem.id);
+      return exists
+        ? prev.map(p => p.id === updatedItem.id ? updatedItem : p)
+        : [updatedItem, ...prev];
+    });
     setPage("landing");
   };
 
   const handleMoveToRFP = (item) => {
     const updated = { ...item, phase: "RFP" };
-    syncCpmItem(updated, upsertInitiative, sharedInitiatives);
+    setPipeline(prev => prev.map(p => p.id === item.id ? updated : p));
     setRfpItem(updated);
     setPage("rfp");
   };
@@ -3297,6 +3925,7 @@ function CPMApp({ onExit, sharedInitiatives, upsertInitiative, patchInitiative }
     setPage("rfp");
   };
 
+  // ── New record creation per stage ──
   const handleNewStrategy = () => setPage("new");
 
   const handleNewRFP = () => {
@@ -3316,6 +3945,7 @@ function CPMApp({ onExit, sharedInitiatives, upsertInitiative, patchInitiative }
     setPage("contracting");
   };
 
+  // ── Contracting handlers ──
   const handleOpenContracting = (item) => {
     setContractItem(item);
     setContractMode(null);
@@ -3324,14 +3954,29 @@ function CPMApp({ onExit, sharedInitiatives, upsertInitiative, patchInitiative }
 
   const handleActivateProject = (activatedItem) => {
     const willBeClosed = contractMode === "new-closed";
-    const projectRecord = {
+    const outcomes = activatedItem.outcomes || [];
+    // Flatten outcomes → milestones list (1-1 with KPI) and deliverables (with milestone link)
+    const milestonesList = outcomes.map(o => ({
+      name:    o.msName || o.kpiName || o.id,
+      startDate: o.msStart, endDate: o.msEnd,
+      weight:  o.msWeight, status: o.msStatus || "Not Started",
+      kpiName: o.kpiName, outcome: o.outcome,
+    }));
+    const deliverables = outcomes.flatMap(o =>
+      o.deliverables.map(d => ({
+        ...d,
+        milestone: o.msName || o.kpiName || o.id,
+      }))
+    );
+    // Remove from pipeline if it existed there
+    setPipeline(prev => prev.filter(p => p.id !== activatedItem.id));
+    setProjects(prev => [{
       id:              activatedItem.id,
       name:            activatedItem.name,
       domain:          activatedItem.domain,
       progress:        willBeClosed ? 100 : 0,
       status:          willBeClosed ? "Closed" : "On Track",
-      phase:           willBeClosed ? "Closed" : "Active",
-      risks:           activatedItem.risks?.filter(r => r.status === "Open").length || 0,
+      risks:           0,
       issues:          0,
       pm:              activatedItem.pm,
       pmEmail:         activatedItem.pmEmail,
@@ -3341,21 +3986,36 @@ function CPMApp({ onExit, sharedInitiatives, upsertInitiative, patchInitiative }
       contractValue:   activatedItem.contractValue,
       spent:           willBeClosed ? activatedItem.contractValue ? `$${Number(activatedItem.contractValue).toLocaleString()}` : "$0" : "$0",
       dueDate:         activatedItem.contractEnd || "TBD",
-      closureDate:     willBeClosed ? todayLocal : undefined,
-      milestone:       willBeClosed ? "Closure & Handover" : (activatedItem.milestones?.[0]?.name || "Project Kick-off"),
+      closureDate:     willBeClosed ? cpmToday : undefined,
+      milestone:       willBeClosed ? "Closure & Handover" : (milestonesList[0]?.name || "Project Kick-off"),
       milestoneStatus: willBeClosed ? "Completed" : "Not Started",
-      deliverables:    activatedItem.deliverables || [],
-      milestonesList:  activatedItem.milestones || [],
-      risksList:       activatedItem.risks || [],
+      deliverables:    deliverables,
+      milestonesList:  milestonesList,
+      risksList:       [],
       dependenciesList:activatedItem.dependencies || [],
+      integrationPoints: activatedItem.integrationPoints || [],
+      // Persist the full contracting record for the read-only view
       contractData:    activatedItem,
-    };
-    syncCpmItem(projectRecord, upsertInitiative, sharedInitiatives);
+    }, ...prev]);
     setContractMode(null);
     setPage("landing");
   };
 
+  // ── Weekly Update handlers ──
   const handleOpenWeekly = (project) => {
+    // Prefer the project's outcome-centric record (from contracting). Fall back to
+    // reconstructing outcomes from flattened milestone/deliverable lists, then to MOCK.
+    let outcomes = null;
+    if (project.contractData?.outcomes && project.contractData.outcomes.length>0) {
+      outcomes = project.contractData.outcomes;
+    } else if (project.milestonesList && project.milestonesList.length>0) {
+      outcomes = project.milestonesList.map((m,i)=>({
+        id:`O-${String(i+1).padStart(3,"0")}`, outcome:m.outcome||"", kpiName:m.kpiName||m.name||"",
+        measurementMethod:"", targetDate:m.endDate||"",
+        msName:m.name, msWeight:m.weight, msStart:m.startDate||"", msEnd:m.endDate||"",
+        deliverables:(project.deliverables||[]).filter(d=>d.milestone===m.name),
+      }));
+    }
     const proj = {
       id:              project.id,
       name:            project.name,
@@ -3365,8 +4025,7 @@ function CPMApp({ onExit, sharedInitiatives, upsertInitiative, patchInitiative }
       contractStart:   project.contractStart   || "2025-01-15",
       contractEnd:     project.contractEnd     || project.dueDate || "2025-12-31",
       contractValue:   project.contractValue   || "0",
-      deliverables:    (project.deliverables && project.deliverables.length>0) ? project.deliverables : MOCK_PROJECT.deliverables,
-      milestones:      (project.milestonesList && project.milestonesList.length>0) ? project.milestonesList : MOCK_PROJECT.milestones,
+      outcomes:        (outcomes && outcomes.length>0) ? outcomes : MOCK_PROJECT.outcomes,
       initialRisks:    (project.risksList && project.risksList.length>0) ? project.risksList : MOCK_PROJECT.initialRisks,
       initialDependencies: (project.dependenciesList && project.dependenciesList.length>0) ? project.dependenciesList : MOCK_PROJECT.initialDependencies,
     };
@@ -3383,70 +4042,72 @@ function CPMApp({ onExit, sharedInitiatives, upsertInitiative, patchInitiative }
     setPage("reports");
   };
 
+  // ── Phase move (generic) ──
   const handleMovePhase = (item) => {
     if (item.phase === "RFP") {
       handleOpenContracting(item);
     } else {
-      const next = { ...item, phase: nextPhase[item.phase] };
-      syncCpmItem(next, upsertInitiative, sharedInitiatives);
+      setPipeline(prev => prev.map(p => p.id === item.id ? { ...p, phase: nextPhase[p.phase] } : p));
     }
   };
 
+  // ── Router ──
   if (page === "new")
     return <PageNewInitiative
+      onExit={onExit}
       onDiscard={() => setPage("landing")}
       onSubmit={handleSubmitStrategy}
-      onExit={onExit}
     />;
 
   if (page === "view")
     return <PageViewInitiative
+      onExit={onExit}
       item={viewing}
       onBack={() => setPage("landing")}
       onMoveToRFP={handleMoveToRFP}
       onOpenWeekly={handleOpenWeekly}
       onViewWeeklyReports={handleViewWeeklyReports}
-      onExit={onExit}
     />;
 
   if (page === "rfp")
     return <PageRFP
+      onExit={onExit}
       strategy={rfpItem}
       onBack={() => setPage("landing")}
       onSubmit={handleSaveRFP}
-      onExit={onExit}
     />;
 
   if (page === "contracting")
     return <PageContracting
+      onExit={onExit}
       strategy={contractItem}
       rfp={contractItem?.rfpData}
       onBack={() => { setContractMode(null); setPage("landing"); }}
       onActivate={handleActivateProject}
       mode={contractMode}
-      onExit={onExit}
     />;
 
   if (page === "weekly")
     return <PageWeeklyUpdate
+      onExit={onExit}
       project={weeklyProject}
       onBack={() => setPage("landing")}
       onSubmit={handleSubmitWeekly}
-      onExit={onExit}
     />;
 
   if (page === "reports")
     return <PageWeeklyReportsHistory
+      onExit={onExit}
       project={reportsProject}
       history={MOCK_HISTORY}
       onBack={() => setPage("landing")}
       onSubmitNew={() => handleOpenWeekly(reportsProject)}
-      onViewWeek={(w) => { }}
-      onExit={onExit}
+      onViewWeek={(w) => { /* could open read-only weekly view */ }}
     />;
 
   return (
     <PageLanding
+      onExit={onExit}
       pipeline={pipeline}
       projects={projects}
       onNewInitiative={handleNewStrategy}
@@ -3459,13 +4120,19 @@ function CPMApp({ onExit, sharedInitiatives, upsertInitiative, patchInitiative }
       onOpenWeekly={handleOpenWeekly}
       onViewWeeklyReports={handleViewWeeklyReports}
       onMovePhase={handleMovePhase}
-      onExit={onExit}
     />
   );
 }
 
 /* =====================================================================
    CYBER BUDGETING TOOL — Merged App (Modules 1 + 2)
+   • App shell with top nav: Horizon Scan · Initiatives
+   • One global identity (the person); each module derives capabilities
+   • Shared observation + initiative stores
+   • Triage → creates a draft Initiative (pre-filled) → opens its detail
+   • Endorsement status flows back to the originating observation
+   Design language inherited from CPM (Segoe UI, blue palette).
+   In-memory demo only.
    ===================================================================== */
 
 const C = {
@@ -3476,6 +4143,7 @@ const C = {
 };
 const FONT = '"Segoe UI", system-ui, -apple-system, sans-serif';
 
+/* ---------------- reference data ---------------- */
 const DOMAINS = {
   IAM: "Identity & Access", GRC: "Governance, Risk & Compliance",
   SECOPS: "Security Operations", APPSEC: "Application Security",
@@ -3530,6 +4198,8 @@ const KPI_LIBRARY = [
   { id:"K7", name:"Acquired-entity onboarding time", unit:"days", direction:"LOWER_IS_BETTER", measurementMethod:"Median days to bring an acquired entity to baseline", domains:["IAM","NET","GRC"] },
 ];
 
+/* ---------------- identities ---------------- */
+/* one global identity; capabilities derived per module */
 const LEADS = {
   "A. Haddad": { name: "A. Haddad (GRC Lead)", role: "DOMAIN_LEAD", domains: ["GRC","DATA"] },
   "R. Okafor": { name: "R. Okafor (IAM Lead)", role: "DOMAIN_LEAD", domains: ["IAM"] },
@@ -3565,14 +4235,15 @@ function daysBetween(a, b) {
 }
 function rid(p) { return `${p}${Math.floor(Math.random()*900)+100}`; }
 
+/* ---------------- budget cycle ---------------- */
 const seedBudgetCycle = {
   cycleId: "CYC-2027",
   cycleName: "FY2027 Budget Cycle",
   cycleYear: 2027,
-  estimatedOpenDate: "2026-07-01",
-  windowStart: null,
+  estimatedOpenDate: "2026-07-01", // expected to open when the scan window closes
+  windowStart: null,               // set when it actually opens
   corporateSubmissionDate: "2026-08-15",
-  status: "PLANNED",
+  status: "PLANNED", // PLANNED | ACTIVE | LOCKED | CLOSED
   autoOpened: false,
   openedManually: false,
   milestones: [
@@ -3582,6 +4253,7 @@ const seedBudgetCycle = {
   ],
 };
 
+/* ---------------- seed observations ---------------- */
 const seedObservations = [
   { observationId:"OBS-2026-001", title:"Group strategy commits to enterprise-wide AI adoption",
     description:"The board's three-year strategy names AI as a primary growth lever, with business units expected to deploy generative-AI capabilities. Cyber must enable this safely, not block it.",
@@ -3631,8 +4303,33 @@ const seedObservations = [
     strategyImpact:"Minor; absorbed within BAU engineering, no budget line.",
     affectedDomains:["APPSEC"], scanMode:"CONTINUOUS", scanCampaignId:null, cycleDeferred:false,
     dateObserved:"2026-03-30", capturedBy:"S. Nair (AppSec Lead)", status:"DISMISSED", triagedBy:"S. Nair (AppSec Lead)", triageOutcome:"DISMISSED", dismissalReason:"Handled within BAU engineering; no strategic impact.", linkedInitiativeId:null },
+  { observationId:"OBS-2026-009", title:"Ransomware group targeting OT environments in sector",
+    description:"Threat intel reports a ransomware operator pivoting to operational-technology networks at peer organisations, with extended outages.",
+    inputCategory:"THREAT", impactTag:"HIGH", source:"Sector ISAC advisory", sourceLink:"",
+    strategyImpact:"Strengthens the case for OT segmentation and detection investment ahead of the cycle.",
+    affectedDomains:["NET","SECOPS"], scanMode:"CONTINUOUS", scanCampaignId:null, cycleDeferred:false,
+    dateObserved:"2026-05-28", capturedBy:"M. Lindqvist (SecOps Lead)", status:"OPEN", triagedBy:null, triageOutcome:null, linkedInitiativeId:null },
+  { observationId:"OBS-2026-010", title:"Board requests quantified cyber-risk reporting",
+    description:"The audit committee asked for cyber risk to be expressed in financial terms for the next strategy refresh.",
+    inputCategory:"STRATEGY", impactTag:"MEDIUM", source:"Audit committee minutes", sourceLink:"",
+    strategyImpact:"Needs a cyber risk quantification capability and tooling — likely a new initiative.",
+    affectedDomains:["GRC"], scanMode:"CYCLE_INTENSIVE", scanCampaignId:"SCAN-2026", cycleDeferred:false,
+    dateObserved:"2026-06-02", capturedBy:"A. Haddad (GRC Lead)", status:"LINKED_TO_INITIATIVE", triagedBy:"A. Haddad (GRC Lead)", triageOutcome:"LINKED_NEW", linkedInitiativeId:"CPM-2026-023" },
+  { observationId:"OBS-2026-011", title:"Data residency rules tighten in two operating regions",
+    description:"New localisation requirements affect where customer data and backups may reside, impacting cloud architecture.",
+    inputCategory:"REGULATORY", impactTag:"MEDIUM", source:"Regional regulator bulletin", sourceLink:"",
+    strategyImpact:"Reinforces the data-protection programme; informs cloud and backup design decisions.",
+    affectedDomains:["DATA","NET"], scanMode:"CYCLE_INTENSIVE", scanCampaignId:"SCAN-2026", cycleDeferred:false,
+    dateObserved:"2026-06-03", capturedBy:"A. Haddad (GRC Lead)", status:"LINKED_TO_INITIATIVE", triagedBy:"A. Haddad (GRC Lead)", triageOutcome:"LINKED_NEW", linkedInitiativeId:"CPM-2026-021" },
+  { observationId:"OBS-2026-012", title:"SOC tooling renewal due next cycle",
+    description:"The current SOC analytics platform contract renews next fiscal year; an early RFI would test the market.",
+    inputCategory:"TECH_SHIFT", impactTag:"MEDIUM", source:"Vendor contract calendar", sourceLink:"",
+    strategyImpact:"Renewal initiative — RFI-driven; opportunity to rationalise tooling spend.",
+    affectedDomains:["SECOPS"], scanMode:"CONTINUOUS", scanCampaignId:null, cycleDeferred:false,
+    dateObserved:"2026-04-15", capturedBy:"M. Lindqvist (SecOps Lead)", status:"LINKED_TO_INITIATIVE", triagedBy:"M. Lindqvist (SecOps Lead)", triageOutcome:"LINKED_NEW", linkedInitiativeId:"CPM-2026-022" },
 ];
 
+/* one seed initiative already in the system (endorsed) for the Initiatives list */
 const seedInitiatives = [
   {
     initiativeId:"CPM-2026-014", name:"Phishing-resistant MFA rollout",
@@ -3642,9 +4339,7 @@ const seedInitiatives = [
     visionStatement:"All workforce identities protected by phishing-resistant MFA.",
     expectedBusinessOutcome:"Materially reduced account-takeover risk ahead of M&A-driven identity growth.",
     inScopeDescription:"Rollout of FIDO2/passkeys across workforce identities; legacy MFA decommission.",
-    outOfScope:[], assumptions:"", cisoStrategicPillarId:"P1",
-    frameworkAlignment:["NIST CSF","ISO 27001"],
-    kpis:[{ uid:"a1", source:"LIBRARY", kpiLibraryId:"K2", name:"Phishing-resistant MFA coverage", unit:"%", direction:"HIGHER_IS_BETTER", measurementMethod:"Share of workforce identities on phishing-resistant MFA", baseline:"40", target:"98", targetDate:"2027-06-30", wasEditedByUser:false }],
+    outOfScope:[], assumptions:"",
     dependencies:[], sponsorId:"D. Mensah (CTO)",
     status:"ENDORSED",
     originatingObservation:"OBS-2026-005",
@@ -3661,9 +4356,7 @@ const seedInitiatives = [
     visionStatement:"Automated, continuous third-party risk monitoring for critical vendors.",
     expectedBusinessOutcome:"Faster, evidence-based vendor risk decisions and DORA-aligned oversight.",
     inScopeDescription:"TPRM platform, continuous monitoring feeds, and assessment workflow automation.",
-    outOfScope:[], assumptions:"", cisoStrategicPillarId:"P4",
-    frameworkAlignment:["DORA","ISO 27001"],
-    kpis:[{ uid:"b1", source:"LIBRARY", kpiLibraryId:"K5", name:"Third-party assessments current", unit:"%", direction:"HIGHER_IS_BETTER", measurementMethod:"Critical vendors with an in-date assessment", baseline:"55", target:"95", targetDate:"2027-12-31", wasEditedByUser:false }],
+    outOfScope:[], assumptions:"",
     dependencies:[], sponsorId:"L. Romano (COO)",
     status:"ENDORSED",
     originatingObservation:"OBS-2026-004",
@@ -3672,10 +4365,105 @@ const seedInitiatives = [
       { step:"CISO", decision:"ENDORSED", by:"CISO Office", date:"2026-05-21", comment:"" },
     ],
   },
+  {
+    initiativeId:"CPM-2026-018", name:"AI Security & Governance capability",
+    domainId:"GRC", subDomainId:"Security Governance", initiativeTypeId:"NEW_CAPABILITY",
+    initiativeOwnerId:"A. Haddad (GRC Lead)", domainLeadId:"A. Haddad (GRC Lead)",
+    problemStatement:"Enterprise-wide AI adoption introduces model risk, data-leakage and third-party AI exposure with no governing controls.",
+    visionStatement:"A managed AI security and governance capability enabling safe AI adoption across the group.",
+    expectedBusinessOutcome:"AI deployed safely at scale, with assurance over model and data risk.",
+    inScopeDescription:"AI usage policy, model-risk assessment, data-leakage controls, third-party AI assurance.",
+    outOfScope:[], assumptions:"",
+    dependencies:[], sponsorId:"K. Yusuf (Chief Digital Officer)",
+    status:"PENDING_CISO",
+    originatingObservation:"OBS-2026-001",
+    endorsements:[
+      { step:"CSSMO", decision:"ENDORSED", by:"L. Romano (COO · CSSMO)", date:"2026-06-04", comment:"" },
+    ],
+  },
+  {
+    initiativeId:"CPM-2026-019", name:"US regulatory gap remediation (acquisition)",
+    domainId:"GRC", subDomainId:"Compliance", initiativeTypeId:"COMPLIANCE",
+    initiativeOwnerId:"A. Haddad (GRC Lead)", domainLeadId:"A. Haddad (GRC Lead)",
+    problemStatement:"The acquired US entity brings federal and state obligations not previously in scope.",
+    visionStatement:"Acquired entity brought to group compliance baseline with US regimes addressed.",
+    expectedBusinessOutcome:"Regulatory exposure closed; breach-notification obligations met.",
+    inScopeDescription:"Gap assessment of the acquired entity and a prioritised remediation programme.",
+    outOfScope:[], assumptions:"",
+    dependencies:[], sponsorId:"P. Andersson (CFO)",
+    status:"PENDING_CSSMO",
+    originatingObservation:"OBS-2026-002",
+    endorsements:[],
+  },
+  {
+    initiativeId:"CPM-2026-020", name:"M&A cyber integration playbook",
+    domainId:"NET", subDomainId:"Network Architecture", initiativeTypeId:"NEW_CAPABILITY",
+    initiativeOwnerId:"M. Lindqvist (SecOps Lead)", domainLeadId:"M. Lindqvist (SecOps Lead)",
+    problemStatement:"Each acquisition is integrated ad hoc, slowing safe onboarding of unknown environments.",
+    visionStatement:"A repeatable cyber integration playbook scaling with deal volume.",
+    expectedBusinessOutcome:"Faster, lower-risk absorption of acquired companies.",
+    inScopeDescription:"Rapid posture assessment, identity onboarding, segmentation patterns.",
+    outOfScope:[], assumptions:"",
+    dependencies:[], sponsorId:null,
+    status:"DRAFT",
+    originatingObservation:"OBS-2026-003",
+    endorsements:[],
+  },
+  {
+    initiativeId:"CPM-2026-021", name:"Data residency & sovereignty controls",
+    domainId:"DATA", subDomainId:"Data Protection", initiativeTypeId:"ENHANCEMENT",
+    initiativeOwnerId:"A. Haddad (GRC Lead)", domainLeadId:"A. Haddad (GRC Lead)",
+    problemStatement:"New localisation rules constrain where data and backups may reside.",
+    visionStatement:"Data residency enforced across cloud and backup architecture.",
+    expectedBusinessOutcome:"Compliant data handling across affected regions.",
+    inScopeDescription:"Residency policy, cloud region controls, backup placement rework.",
+    outOfScope:[], assumptions:"",
+    dependencies:[], sponsorId:"D. Mensah (CTO)",
+    status:"SENT_BACK",
+    originatingObservation:"OBS-2026-011",
+    endorsements:[
+      { step:"CSSMO", decision:"SENT_BACK", by:"L. Romano (COO · CSSMO)", date:"2026-06-05", comment:"Clarify which regions are in scope and quantify the backup rework before resubmitting." },
+    ],
+  },
+  {
+    initiativeId:"CPM-2026-022", name:"SOC analytics platform renewal",
+    domainId:"SECOPS", subDomainId:"Detection & Response", initiativeTypeId:"RENEWAL",
+    initiativeOwnerId:"M. Lindqvist (SecOps Lead)", domainLeadId:"M. Lindqvist (SecOps Lead)",
+    problemStatement:"The SOC analytics platform contract renews next cycle with no market test.",
+    visionStatement:"Renewed or rationalised SOC analytics tooling at the right cost.",
+    expectedBusinessOutcome:"Maintained detection coverage with optimised spend.",
+    inScopeDescription:"RFI across SIEM/analytics vendors; renewal or migration decision.",
+    outOfScope:[], assumptions:"",
+    dependencies:[], sponsorId:"D. Mensah (CTO)",
+    status:"ENDORSED",
+    originatingObservation:"OBS-2026-012",
+    endorsements:[
+      { step:"CSSMO", decision:"ENDORSED", by:"L. Romano (COO · CSSMO)", date:"2026-05-30", comment:"" },
+      { step:"CISO", decision:"ENDORSED", by:"CISO Office", date:"2026-06-01", comment:"" },
+    ],
+  },
+  {
+    initiativeId:"CPM-2026-023", name:"Cyber risk quantification capability",
+    domainId:"GRC", subDomainId:"Security Governance", initiativeTypeId:"NEW_CAPABILITY",
+    initiativeOwnerId:"A. Haddad (GRC Lead)", domainLeadId:"A. Haddad (GRC Lead)",
+    problemStatement:"The board wants cyber risk expressed in financial terms, but there is no capability to quantify it.",
+    visionStatement:"Cyber risk reported in financial terms to support board-level decisions.",
+    expectedBusinessOutcome:"Risk-based, financially-grounded prioritisation of cyber investment.",
+    inScopeDescription:"Risk quantification methodology, supporting tooling, and reporting into the strategy refresh.",
+    outOfScope:[], assumptions:"",
+    dependencies:[], sponsorId:"P. Andersson (CFO)",
+    status:"ENDORSED",
+    originatingObservation:"OBS-2026-010",
+    endorsements:[
+      { step:"CSSMO", decision:"ENDORSED", by:"L. Romano (COO · CSSMO)", date:"2026-06-06", comment:"" },
+      { step:"CISO", decision:"ENDORSED", by:"CISO Office", date:"2026-06-08", comment:"" },
+    ],
+  },
 ];
 
-const STEPS = ["Identity","Strategic Definition","Scope","Alignment","KPIs","Sponsor & Submit"];
+const STEPS = ["Identity","Strategic Definition","Scope","Sponsor & Submit"];
 
+/* ---------------- budgeting reference data & helpers ---------------- */
 const CONFIDENCE = {
   HIGH: { label:"High", color:C.green },
   MEDIUM: { label:"Medium", color:C.amber },
@@ -3709,6 +4497,40 @@ function gridHasData(years, rows) {
 function rowsTotalsByYear(years, rows) {
   return years.map((y)=>{ const r=rows[y]||{}; return { year:y, total:num(r.service)+num(r.license), service:num(r.service), license:num(r.license), capex:num(r.capex), opex:num(r.opex) }; });
 }
+
+/* ---------------- Research costing calculator ----------------
+   Builds the per-year {service,license,capex,opex} grid from resourcing
+   and technology line items, so the rest of the tool reads research.rows
+   exactly as before. Mapping:
+     resource line  -> service fees; CAPEX/OPEX per the row's fund flag; spread across years by its % split
+     technology     -> license fees; one-off CAPEX in year 1; annual license fee (OPEX) recurs every covered year
+   Invariant per year: service+license = capex+opex = total (holds by construction). */
+function resourceLineTotal(r) { return num(r.count) * num(r.manDays) * num(r.dayRate); }
+function splitPctSum(r, years) { return years.reduce((a,y)=>a+num(r.split?.[y]),0); }
+function deriveResearchRows(years, research) {
+  const rows = {};
+  years.forEach((y)=>{ rows[y] = { service:0, license:0, capex:0, opex:0 }; });
+  (research?.resources||[]).forEach((r)=>{
+    const lineTotal = resourceLineTotal(r);
+    years.forEach((y)=>{
+      const alloc = lineTotal * (num(r.split?.[y]) / 100);
+      if (alloc === 0) return;
+      rows[y].service += alloc;                 // all resource cost is a service fee
+      if (r.fund === "CAPEX") rows[y].capex += alloc; else rows[y].opex += alloc;
+    });
+  });
+  (research?.technology||[]).forEach((t)=>{
+    years.forEach((y,idx)=>{
+      if (idx === 0 && num(t.capex) > 0) { rows[y].license += num(t.capex); rows[y].capex += num(t.capex); } // one-off in year 1
+      if (num(t.annualLicense) > 0)      { rows[y].license += num(t.annualLicense); rows[y].opex += num(t.annualLicense); } // recurs every year
+    });
+  });
+  // stringify to match the existing grid shape consumed downstream
+  const out = {};
+  years.forEach((y)=>{ const r=rows[y]; out[y] = { service:String(Math.round(r.service)), license:String(Math.round(r.license)), capex:String(Math.round(r.capex)), opex:String(Math.round(r.opex)) }; });
+  return out;
+}
+function researchHasLines(research) { return (research?.resources||[]).length>0 || (research?.technology||[]).length>0; }
 function planProposedTotal(plan) {
   if (!plan) return 0;
   const years = plan.coveredYears;
@@ -3722,6 +4544,7 @@ function planProposedTotal(plan) {
 function planStageLabel(plan) {
   return PLAN_STAGE[plan.currentStage]?.label || plan.currentStage;
 }
+/* InitiativeType skip flags */
 const TYPE_TRACKS = {
   NEW_CAPABILITY: { research:true, rfi:true },
   ENHANCEMENT: { research:true, rfi:true },
@@ -3729,6 +4552,7 @@ const TYPE_TRACKS = {
   COMPLIANCE: { research:true, rfi:false },
 };
 
+/* one seed plan for the endorsed MFA initiative, mid-estimate */
 const seedPlans = [
   {
     planId: "PLAN-2026-101",
@@ -3745,10 +4569,17 @@ const seedPlans = [
       assumptions: "Hardware keys for 30% of users; passkeys for the rest. Existing IdP supports WebAuthn.",
       risks: "Key logistics for remote staff; help-desk load during cutover.",
       confidence: "MEDIUM",
+      resources: [
+        { id:"r1", role:"IAM Implementation Engineer", count:"2", manDays:"120", dayRate:"700", fund:"CAPEX", split:{ 2027:"100", 2028:"0", 2029:"0" } },
+        { id:"r2", role:"IAM Run / Support Analyst",    count:"1", manDays:"180", dayRate:"500", fund:"OPEX",  split:{ 2027:"34", 2028:"33", 2029:"33" } },
+      ],
+      technology: [
+        { id:"t1", item:"FIDO2 security keys + passkey platform", capex:"32000", annualLicense:"110000" },
+      ],
       rows: {
-        2027: { service:"180000", license:"120000", capex:"200000", opex:"100000" },
-        2028: { service:"90000", license:"110000", capex:"0", opex:"200000" },
-        2029: { service:"60000", license:"110000", capex:"0", opex:"170000" },
+        2027: { service:"198600", license:"142000", capex:"200000", opex:"140600" },
+        2028: { service:"29700", license:"110000", capex:"0", opex:"139700" },
+        2029: { service:"29700", license:"110000", capex:"0", opex:"139700" },
       },
       completed: true,
     },
@@ -3786,9 +4617,16 @@ const seedPlans = [
       assumptions: "SaaS platform; integration with existing GRC tooling.",
       risks: "Data-feed coverage for smaller vendors uncertain.",
       confidence: "HIGH",
+      resources: [
+        { id:"r1", role:"GRC Implementation Consultant", count:"1", manDays:"100", dayRate:"800", fund:"CAPEX", split:{ 2027:"100", 2028:"0" } },
+        { id:"r2", role:"TPRM Analyst",                   count:"1", manDays:"150", dayRate:"400", fund:"OPEX",  split:{ 2027:"50", 2028:"50" } },
+      ],
+      technology: [
+        { id:"t1", item:"TPRM platform + monitoring feeds", capex:"20000", annualLicense:"160000" },
+      ],
       rows: {
-        2027: { service:"140000", license:"160000", capex:"100000", opex:"200000" },
-        2028: { service:"60000", license:"160000", capex:"0", opex:"220000" },
+        2027: { service:"110000", license:"180000", capex:"100000", opex:"190000" },
+        2028: { service:"30000", license:"160000", capex:"0", opex:"190000" },
       },
       completed: true,
     },
@@ -3804,8 +4642,116 @@ const seedPlans = [
     },
     review: { sponsorConfirmed:false, sponsorChangeRequested:false, newSponsorId:null, log:[], cssmoAgreed:false },
   },
+  {
+    planId: "PLAN-2026-103",
+    initiativeId: "CPM-2026-022",
+    planType: "INITIAL",
+    currentStage: "PLAN_DRAFTED",
+    coveredYears: [2027, 2028, 2029],
+    firstYear: 2027,
+    tracks: { research:false, rfi:true },
+    createdBy: "M. Lindqvist (SecOps Lead)",
+    createdDate: "2026-06-02",
+    research: null,
+    rfi: { scope:"Market RFI across SIEM/analytics vendors for a 3-year renewal or migration.", confidence:"", notes:"", vendors:[], rows:emptyRows([2027,2028,2029]), completed:false },
+    sourceByYear: { 2027:"RFI", 2028:"RFI", 2029:"RFI" },
+  },
+  {
+    planId: "PLAN-2026-104",
+    initiativeId: "CPM-2026-018",
+    planType: "INITIAL",
+    currentStage: "RFI",
+    coveredYears: [2027, 2028, 2029],
+    firstYear: 2027,
+    tracks: { research:true, rfi:true },
+    createdBy: "A. Haddad (GRC Lead)",
+    createdDate: "2026-06-05",
+    research: {
+      scope: "Sized an AI governance capability: model-risk tooling, DLP for AI, policy and assurance effort.",
+      assumptions: "Builds on existing GRC tooling; one new platform license.",
+      risks: "Fast-moving vendor landscape; scope may shift within the cycle.",
+      confidence: "MEDIUM",
+      resources: [
+        { id:"r1", role:"AI Governance Lead (build)", count:"1", manDays:"150", dayRate:"800", fund:"CAPEX", split:{ 2027:"100", 2028:"0", 2029:"0" } },
+        { id:"r2", role:"Model Risk Analyst",         count:"1", manDays:"160", dayRate:"500", fund:"OPEX",  split:{ 2027:"34", 2028:"33", 2029:"33" } },
+      ],
+      technology: [
+        { id:"t1", item:"AI security & model-risk platform", capex:"0", annualLicense:"150000" },
+      ],
+      rows: {
+        2027: { service:"147200", license:"150000", capex:"120000", opex:"177200" },
+        2028: { service:"26400", license:"150000", capex:"0", opex:"176400" },
+        2029: { service:"26400", license:"150000", capex:"0", opex:"176400" },
+      },
+      completed: true,
+    },
+    rfi: {
+      scope: "Pricing from AI-security platform vendors over three years.",
+      confidence: "LOW", notes: "",
+      vendors: [
+        { id:"v1", vendorName:"Vendor A", contactName:"", contactEmail:"", dateContacted:"2026-06-06", responseDate:"", status:"CONTACTED", notes:"",
+          quote:{ 2027:{service:"",license:""}, 2028:{service:"",license:""}, 2029:{service:"",license:""} } },
+      ],
+      rows: emptyRows([2027,2028,2029]),
+      completed: false,
+    },
+    sourceByYear: { 2027:"RESEARCH", 2028:"RESEARCH", 2029:"RESEARCH" },
+  },
+  {
+    planId: "PLAN-2026-105",
+    initiativeId: "CPM-2026-019",
+    planType: "INITIAL",
+    currentStage: "PLAN_APPROVED",
+    coveredYears: [2027, 2028],
+    firstYear: 2027,
+    tracks: { research:true, rfi:false },
+    createdBy: "A. Haddad (GRC Lead)",
+    createdDate: "2026-05-25",
+    research: {
+      scope: "Sized the US regulatory gap remediation: assessment plus prioritised controls.",
+      assumptions: "External counsel for the gap assessment; internal delivery thereafter.",
+      risks: "Scope of state-law obligations may broaden.",
+      confidence: "HIGH",
+      resources: [
+        { id:"r1", role:"Compliance Remediation Lead", count:"1", manDays:"100", dayRate:"600", fund:"CAPEX", split:{ 2027:"100", 2028:"0" } },
+        { id:"r2", role:"Compliance Analyst",          count:"1", manDays:"100", dayRate:"400", fund:"OPEX",  split:{ 2027:"50", 2028:"50" } },
+      ],
+      technology: [
+        { id:"t1", item:"GRC compliance module", capex:"0", annualLicense:"40000" },
+      ],
+      rows: {
+        2027: { service:"80000", license:"40000", capex:"60000", opex:"60000" },
+        2028: { service:"20000", license:"40000", capex:"0", opex:"60000" },
+      },
+      completed: true,
+    },
+    rfi: null,
+    sourceByYear: { 2027:"RESEARCH", 2028:"RESEARCH" },
+    proposedSnapshot: [
+      { year:2027, total:160000, service:120000, license:40000, capex:60000, opex:100000 },
+      { year:2028, total:80000, service:40000, license:40000, capex:0, opex:80000 },
+    ],
+    agreedRows: {
+      2027: { service:"120000", license:"40000", capex:"60000", opex:"100000" },
+      2028: { service:"40000", license:"40000", capex:"0", opex:"80000" },
+    },
+    review: {
+      sponsorConfirmed:true, sponsorChangeRequested:false, newSponsorId:null, cssmoAgreed:true,
+      log:[
+        { step:"CSSMO", action:"AGREED", by:"L. Romano (COO · CSSMO)", date:"2026-05-30" },
+        { step:"CISO", action:"APPROVED", by:"CISO Office", date:"2026-06-02" },
+      ],
+    },
+    budgetRecords: [
+      { budgetRecordId:"BUD-2026-201", planId:"PLAN-2026-105", initiativeId:"CPM-2026-019", year:2027, serviceFeesUSD:120000, licenseFeesUSD:40000, capexUSD:60000, opexUSD:100000, totalUSD:160000, status:"APPROVED" },
+      { budgetRecordId:"BUD-2026-202", planId:"PLAN-2026-105", initiativeId:"CPM-2026-019", year:2028, serviceFeesUSD:40000, licenseFeesUSD:40000, capexUSD:0, opexUSD:80000, totalUSD:80000, status:"APPROVED" },
+    ],
+  },
 ];
 
+/* =====================================================================
+   primitives
+   ===================================================================== */
 function Badge({ text, color }) {
   return <span style={{ display:"inline-block", fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:0.4, color, border:`1px solid ${color}`, background:`${color}14`, borderRadius:4, padding:"2px 8px", whiteSpace:"nowrap" }}>{text}</span>;
 }
@@ -3827,13 +4773,16 @@ function Meta({ label, value }) {
   return <div><div style={{ fontSize:10.5, fontWeight:600, textTransform:"uppercase", letterSpacing:0.4, color:C.textMuted }}>{label}</div><div style={{ fontSize:13, color:C.textDark, marginTop:2 }}>{value}</div></div>;
 }
 
+/* =====================================================================
+   APP SHELL
+   ===================================================================== */
 function BudgetingApp({ onExit, sharedInitiatives, upsertInitiative, patchInitiative }) {
   const [identityKey, setIdentityKey] = useState("A. Haddad");
   const identity = LEADS[identityKey];
   const isLead = identity.role === "DOMAIN_LEAD";
   const isOversight = identity.role === "CSSMO" || identity.role === "CISO";
 
-  const [nav, setNav] = useState("scan");
+  const [nav, setNav] = useState("scan"); // scan | initiatives | budgeting
   const [observations, setObservations] = useState(seedObservations);
   const initiatives = sharedInitiatives;
   const setInitiatives = (updater) => {
@@ -3847,6 +4796,7 @@ function BudgetingApp({ onExit, sharedInitiatives, upsertInitiative, patchInitia
   const [activePlanId, setActivePlanId] = useState(null);
   const [pendingPlanInitiativeId, setPendingPlanInitiativeId] = useState(null);
 
+  /* ---- shared mutations ---- */
   function updateObs(id, patch) {
     setObservations((prev) => prev.map((o) => (o.observationId === id ? { ...o, ...patch } : o)));
   }
@@ -3857,6 +4807,7 @@ function BudgetingApp({ onExit, sharedInitiatives, upsertInitiative, patchInitia
     setPlans((prev) => prev.map((p) => (p.planId === id ? { ...p, ...patch } : p)));
   }
 
+  /* open an initiative's plan if it exists, else go to budgeting list to create one */
   function proceedToBudgeting(initiativeId) {
     const existing = plans.find((p) => p.initiativeId === initiativeId);
     if (existing) {
@@ -3874,6 +4825,7 @@ function BudgetingApp({ onExit, sharedInitiatives, upsertInitiative, patchInitia
     setPendingPlanInitiativeId(null);
   }
 
+  /* triage: create a draft initiative from an observation, then open it */
   function createInitiativeFromObs(obs) {
     const newId = `CPM-2026-${rid("")}`;
     const draft = {
@@ -3890,9 +4842,6 @@ function BudgetingApp({ onExit, sharedInitiatives, upsertInitiative, patchInitia
       inScopeDescription: "",
       outOfScope: [],
       assumptions: "",
-      cisoStrategicPillarId: "",
-      frameworkAlignment: [],
-      kpis: [],
       dependencies: [],
       sponsorId: null,
       status: "DRAFT",
@@ -3917,6 +4866,7 @@ function BudgetingApp({ onExit, sharedInitiatives, upsertInitiative, patchInitia
 
   return (
     <div style={{ font:FONT, background:C.pageBg, minHeight:"100vh", color:C.textDark }}>
+      {/* header */}
       <div style={{ background:C.deepest, color:"#fff", padding:"14px 28px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <div style={{ display:"flex", alignItems:"center", gap:26 }}>
           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
@@ -3924,6 +4874,7 @@ function BudgetingApp({ onExit, sharedInitiatives, upsertInitiative, patchInitia
             <div style={{ width:30, height:30, borderRadius:7, background:C.medium, display:"grid", placeItems:"center", fontWeight:800, fontSize:16 }}>◆</div>
             <div style={{ fontSize:15.5, fontWeight:700, letterSpacing:0.3 }}>Cyber Budgeting</div>
           </div>
+          {/* top nav */}
           <div style={{ display:"flex", gap:4 }}>
             {[{k:"scan",label:"Horizon Scan"},{k:"initiatives",label:"Initiatives"},{k:"budgeting",label:"Budgeting"}].map((t) => (
               <button key={t.k} onClick={() => { setNav(t.k); if (t.k==="initiatives") setActiveInitiativeId(null); if (t.k==="budgeting") setActivePlanId(null); }}
@@ -3933,6 +4884,7 @@ function BudgetingApp({ onExit, sharedInitiatives, upsertInitiative, patchInitia
             ))}
           </div>
         </div>
+        {/* global identity */}
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           <span style={{ fontSize:12, opacity:0.8 }}>Signed in as</span>
           <select value={identityKey} onChange={(e) => setIdentityKey(e.target.value)}
@@ -3975,9 +4927,12 @@ function BudgetingApp({ onExit, sharedInitiatives, upsertInitiative, patchInitia
   );
 }
 
+/* =====================================================================
+   MODULE 1 — HORIZON SCAN
+   ===================================================================== */
 function HorizonScan({ identity, isLead, isOversight, observations, updateObs, addObservation, onCreateInitiative, onOpenInitiative, campaign, setCampaign }) {
   const myDomains = identity.domains;
-  const [view, setView] = useState("inbox");
+  const [view, setView] = useState("inbox"); // inbox | capture | sweep
   const [selected, setSelected] = useState(null);
   const [filterStatus, setFilterStatus] = useState("OPEN");
   const [showArchived, setShowArchived] = useState(false);
@@ -4039,6 +4994,7 @@ function HorizonScan({ identity, isLead, isOversight, observations, updateObs, a
         onClose={() => setCampaign((c)=>({...c,status:"CLOSED"}))}
         onGoToSweep={() => setView("sweep")} />
 
+      {/* KPI strip */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:14, padding:"20px 28px 6px" }}>
         {[
           { label:isOversight?"Open (all)":"My Open Signals", value:counts.open, accent:C.medium },
@@ -4054,6 +5010,7 @@ function HorizonScan({ identity, isLead, isOversight, observations, updateObs, a
         ))}
       </div>
 
+      {/* action bar */}
       <div style={{ padding:"14px 28px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10 }}>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
           {[{k:"OPEN",label:"Open"},{k:"TRIAGED",label:"Triaged"},{k:"LINKED_TO_INITIATIVE",label:"Linked"},{k:"DISMISSED",label:"Dismissed"},{k:"ALL",label:"All"}].map((f) => {
@@ -4069,6 +5026,7 @@ function HorizonScan({ identity, isLead, isOversight, observations, updateObs, a
         </div>
       </div>
 
+      {/* main */}
       <div style={{ padding:"0 28px 40px" }}>
         {view==="capture" && isLead ? (
           <CaptureForm onCancel={()=>setView("inbox")} onSave={(o)=>{addObservation(o);setView("inbox");setFilterStatus("OPEN");}} actingUser={identity.name} myDomains={myDomains} campaignActive={campaignActive} campaignId={campaign.campaignId} />
@@ -4333,10 +5291,14 @@ function ReasonBox({ label, placeholder, reason, setReason, onBack, onConfirm, c
   );
 }
 
+/* =====================================================================
+   MODULE 2 — INITIATIVES (list + detail)
+   ===================================================================== */
 function Initiatives({ identity, isLead, isOversight, initiatives, updateInit, updateObs, activeId, setActiveId, plans, onProceedToBudgeting }) {
   if (activeId) {
     const init = initiatives.find((i) => i.initiativeId === activeId);
     if (!init) { setActiveId(null); return null; }
+    // scope guard: a domain lead may only open initiatives in their domains or that they own
     const inScope = isOversight || identity.domains.includes(init.domainId) || init.initiativeOwnerId === identity.name;
     if (!inScope) {
       return (
@@ -4363,6 +5325,8 @@ function InitiativeList({ initiatives, identity, isOversight, onOpen, onProceedT
     DISMISSED:{label:"Dismissed",color:C.grey},
   };
 
+  // Scope: CSSMO/CISO see all; a domain lead sees initiatives in their
+  // domains or that they own.
   const scoped = isOversight
     ? initiatives
     : initiatives.filter(
@@ -4386,6 +5350,7 @@ function InitiativeList({ initiatives, identity, isOversight, onOpen, onProceedT
         <div style={{ fontSize:12.5, color:C.textMuted }}>{scoped.length} {isOversight ? "total" : "in your domains"}</div>
       </div>
 
+      {/* card list — robust at any width; status always visible */}
       <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
         {scoped.map((it) => {
           const sm = statusMeta[it.status] || { label: it.status, color: C.grey };
@@ -4534,6 +5499,7 @@ function StatusRibbon({ init }) {
     DISMISSED:{label:"Dismissed", color:C.grey},
   }[init.status] || { label: init.status, color: C.grey };
 
+  // simple progress chain
   const chain = ["DRAFT","PENDING_CSSMO","PENDING_CISO","ENDORSED"];
   const idx = chain.indexOf(init.status);
 
@@ -4544,6 +5510,7 @@ function StatusRibbon({ init }) {
         <Badge text={statusMeta.label} color={statusMeta.color} />
         {init.status === "ENDORSED" && <span style={{ fontSize:12, color:C.green, fontWeight:600 }}>✓ ready for budgeting</span>}
       </div>
+      {/* mini progress dots, hidden for off-ramp states */}
       {!["DISMISSED"].includes(init.status) && (
         <div style={{ display:"flex", alignItems:"center", gap:6 }}>
           {chain.map((s,i)=>{
@@ -4577,8 +5544,6 @@ function computeMissing(init) {
   if (!init.visionStatement?.trim()) m.push("Vision statement");
   if (!init.expectedBusinessOutcome?.trim()) m.push("Expected outcome");
   if (!init.inScopeDescription?.trim()) m.push("In-scope description");
-  if (!init.cisoStrategicPillarId) m.push("Strategic pillar");
-  if (!init.kpis || init.kpis.length===0) m.push("At least one KPI");
   if (!init.sponsorId) m.push("Sponsor");
   return m;
 }
@@ -4587,6 +5552,8 @@ function OwnerForm({ init, set, updateObs, editable = true, isOwner = true }) {
   const [step, setStep] = useState(0);
   const missing = computeMissing(init);
   const definitionComplete = missing.length === 0;
+  // The form is interactive only when the viewer may edit. It is greyed when
+  // locked by submission/endorsement, or when the viewer isn't the owner.
   const locked = !editable;
 
   function submit() {
@@ -4601,6 +5568,7 @@ function OwnerForm({ init, set, updateObs, editable = true, isOwner = true }) {
         {STEPS.map((s,i)=>{const active=i===step;return <button key={s} onClick={()=>setStep(i)} style={{ width:"100%", textAlign:"left", font:FONT, fontSize:13.5, fontWeight:active?700:500, color:active?C.deepest:C.textMuted, background:active?"#EAF4FB":"transparent", border:"none", borderLeft:`3px solid ${active?C.dark:"transparent"}`, padding:"11px 20px", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}><span style={{ width:22, height:22, borderRadius:"50%", border:`2px solid ${active?C.dark:C.border}`, display:"grid", placeItems:"center", fontSize:11.5, fontWeight:700, color:active?C.dark:C.textMuted }}>{i+1}</span>{s}</button>;})}
       </div>
       <div style={{ flex:1, padding:"26px 32px", maxWidth:860 }}>
+        {/* viewer is not the owner — read-only context banner */}
         {!isOwner && (
           <div style={{ background:"#EEF4F8", border:`1px solid ${C.border}`, borderRadius:8, padding:"12px 16px", fontSize:13, marginBottom:20, lineHeight:1.5 }}>
             Viewing <strong>{init.initiativeOwnerId}</strong>'s initiative. You can review the full definition below; only the owner can edit it.
@@ -4622,9 +5590,7 @@ function OwnerForm({ init, set, updateObs, editable = true, isOwner = true }) {
           {step===0 && <StepIdentity init={init} set={set} />}
           {step===1 && <StepVision init={init} set={set} />}
           {step===2 && <StepScope init={init} set={set} />}
-          {step===3 && <StepAlignment init={init} set={set} />}
-          {step===4 && <StepKPIs init={init} set={set} />}
-          {step===5 && <StepSubmit init={init} set={set} missing={missing} definitionComplete={definitionComplete} onSubmit={submit} locked={locked} />}
+          {step===3 && <StepSubmit init={init} set={set} missing={missing} definitionComplete={definitionComplete} onSubmit={submit} locked={locked} />}
         </div>
 
         <div style={{ display:"flex", justifyContent:"space-between", marginTop:28, borderTop:`1px solid ${C.border}`, paddingTop:18 }}>
@@ -4684,65 +5650,6 @@ function StepScope({ init, set }) {
     </div>
   );
 }
-function StepAlignment({ init, set }) {
-  function tog(f){ set({ frameworkAlignment:init.frameworkAlignment.includes(f)?init.frameworkAlignment.filter(x=>x!==f):[...init.frameworkAlignment,f] }); }
-  return (
-    <div>
-      <StepHeader title="Strategic Alignment" blurb="How this ties to the CISO's strategy and which frameworks it advances." />
-      <Field label="CISO Strategic Pillar" required><select style={inputStyle} value={init.cisoStrategicPillarId} onChange={(e)=>set({cisoStrategicPillarId:e.target.value})}><option value="">— select —</option>{Object.entries(PILLARS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></Field>
-      <Field label="Framework Alignment" hint="Select all that apply."><div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>{FRAMEWORKS.map((f)=><Pill key={f} on={init.frameworkAlignment.includes(f)} onClick={()=>tog(f)}>{f}</Pill>)}</div></Field>
-    </div>
-  );
-}
-function StepKPIs({ init, set }) {
-  const [picker, setPicker] = useState(false);
-  const sug = KPI_LIBRARY.filter((k)=>k.domains.includes(init.domainId));
-  const other = KPI_LIBRARY.filter((k)=>!k.domains.includes(init.domainId));
-  function addLib(k){ set({ kpis:[...init.kpis,{ uid:Math.random().toString(36).slice(2,8), source:"LIBRARY", kpiLibraryId:k.id, name:k.name, unit:k.unit, direction:k.direction, measurementMethod:k.measurementMethod, baseline:"", target:"", targetDate:"", wasEditedByUser:false }] }); setPicker(false); }
-  function addMan(){ set({ kpis:[...init.kpis,{ uid:Math.random().toString(36).slice(2,8), source:"MANUAL", kpiLibraryId:null, name:"", unit:"", direction:"HIGHER_IS_BETTER", measurementMethod:"", baseline:"", target:"", targetDate:"", wasEditedByUser:true }] }); }
-  function upd(uid,k,v){ set({ kpis:init.kpis.map((x)=>x.uid===uid?{...x,[k]:v,wasEditedByUser:true}:x) }); }
-  function rem(uid){ set({ kpis:init.kpis.filter((x)=>x.uid!==uid) }); }
-  return (
-    <div>
-      <StepHeader title="KPIs" blurb="Every initiative needs at least one. Pick from the library, add your own, or (soon) generate with AI." />
-      <div style={{ display:"flex", gap:9, marginBottom:18, flexWrap:"wrap" }}>
-        <Btn onClick={()=>setPicker((p)=>!p)}>＋ From Library</Btn>
-        <Btn kind="secondary" onClick={addMan}>＋ Add Manually</Btn>
-        <button disabled title="AI generation will be designed as its own piece." style={{ font:FONT, fontSize:13, fontWeight:600, color:C.textMuted, background:"#F2F6FA", border:`1px dashed ${C.light}`, borderRadius:6, padding:"8px 14px", cursor:"not-allowed", display:"flex", gap:7, alignItems:"center" }}>✦ Generate with AI <Badge text="Soon" color={C.medium} /></button>
-      </div>
-      {picker && (
-        <div style={{ background:"#fff", border:`1px solid ${C.border}`, borderRadius:8, padding:"16px 18px", marginBottom:18 }}>
-          <div style={{ fontSize:12, fontWeight:700, color:C.deepest, textTransform:"uppercase", letterSpacing:0.6, marginBottom:10 }}>Suggested for {DOMAINS[init.domainId]}</div>
-          <div style={{ display:"flex", flexDirection:"column", gap:7 }}>{sug.map((k)=><LibRow key={k.id} k={k} onAdd={()=>addLib(k)} disabled={init.kpis.some((x)=>x.kpiLibraryId===k.id)} />)}{sug.length===0 && <div style={{ fontSize:12.5, color:C.textMuted }}>No domain-specific suggestions; see others below.</div>}</div>
-          <div style={{ fontSize:12, fontWeight:700, color:C.textMuted, textTransform:"uppercase", letterSpacing:0.6, margin:"14px 0 10px" }}>Other library KPIs</div>
-          <div style={{ display:"flex", flexDirection:"column", gap:7 }}>{other.map((k)=><LibRow key={k.id} k={k} onAdd={()=>addLib(k)} disabled={init.kpis.some((x)=>x.kpiLibraryId===k.id)} />)}</div>
-        </div>
-      )}
-      {init.kpis.length===0 ? (
-        <div style={{ background:"#fff", border:`1px dashed ${C.border}`, borderRadius:8, padding:"30px", textAlign:"center", color:C.textMuted, fontSize:13.5 }}>No KPIs yet. Add at least one to complete the definition.</div>
-      ) : (
-        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>{init.kpis.map((k)=>(
-          <div key={k.uid} style={{ background:"#fff", border:`1px solid ${C.border}`, borderRadius:8, padding:"14px 16px" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
-              <div style={{ flex:1 }}>{k.source==="MANUAL"?<input style={{ ...inputStyle, fontWeight:600 }} placeholder="KPI name" value={k.name} onChange={(e)=>upd(k.uid,"name",e.target.value)} />:<div style={{ fontSize:14.5, fontWeight:700 }}>{k.name}</div>}</div>
-              <div style={{ display:"flex", gap:7, alignItems:"center" }}><Badge text={k.source==="LIBRARY"?"Library":k.source==="AI_GENERATED"?"AI":"Manual"} color={k.source==="LIBRARY"?C.dark:k.source==="AI_GENERATED"?C.medium:C.grey} /><button onClick={()=>rem(k.uid)} style={{ background:"transparent", border:"none", color:C.red, fontSize:18, cursor:"pointer" }}>×</button></div>
-            </div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginTop:12 }}>
-              <MiniField label="Baseline"><input style={inputStyle} value={k.baseline} onChange={(e)=>upd(k.uid,"baseline",e.target.value)} /></MiniField>
-              <MiniField label="Target"><input style={inputStyle} value={k.target} onChange={(e)=>upd(k.uid,"target",e.target.value)} /></MiniField>
-              <MiniField label="Unit"><input style={inputStyle} value={k.unit} onChange={(e)=>upd(k.uid,"unit",e.target.value)} disabled={k.source==="LIBRARY"} /></MiniField>
-              <MiniField label="Target Date"><input type="date" style={inputStyle} value={k.targetDate} onChange={(e)=>upd(k.uid,"targetDate",e.target.value)} /></MiniField>
-            </div>
-            {k.measurementMethod && <div style={{ fontSize:11.5, color:C.textMuted, marginTop:9 }}>Measurement: {k.measurementMethod} · {k.direction==="HIGHER_IS_BETTER"?"higher is better":"lower is better"}</div>}
-          </div>
-        ))}</div>
-      )}
-    </div>
-  );
-}
-function LibRow({ k, onAdd, disabled }) {
-  return <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", background:"#F7FBFE", border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px" }}><div><div style={{ fontSize:13, fontWeight:600 }}>{k.name}</div><div style={{ fontSize:11.5, color:C.textMuted }}>{k.unit} · {k.direction==="HIGHER_IS_BETTER"?"↑ better":"↓ better"}</div></div><Btn kind="secondary" onClick={onAdd} disabled={disabled}>{disabled?"Added":"Add"}</Btn></div>;
-}
 function MiniField({ label, children }) {
   return <div><div style={{ fontSize:10.5, fontWeight:600, textTransform:"uppercase", letterSpacing:0.4, color:C.textMuted, marginBottom:4 }}>{label}</div>{children}</div>;
 }
@@ -4799,7 +5706,7 @@ function EndorserView({ init, role, set, updateObs, readOnly }) {
         <div style={{ background:C.deepest, color:"#fff", padding:"16px 20px" }}>
           <div style={{ fontSize:11.5, opacity:0.85 }}>{init.initiativeId}{init.originatingObservation && <> · from {init.originatingObservation}</>}</div>
           <div style={{ fontSize:17, fontWeight:700, marginTop:3 }}>{init.name}</div>
-          <div style={{ display:"flex", gap:7, marginTop:10, flexWrap:"wrap" }}><Badge text={DOMAINS[init.domainId]} color="#fff" /><Badge text={INITIATIVE_TYPES[init.initiativeTypeId]} color="#fff" />{init.cisoStrategicPillarId && <Badge text={PILLARS[init.cisoStrategicPillarId]} color="#fff" />}</div>
+          <div style={{ display:"flex", gap:7, marginTop:10, flexWrap:"wrap" }}><Badge text={DOMAINS[init.domainId]} color="#fff" /><Badge text={INITIATIVE_TYPES[init.initiativeTypeId]} color="#fff" /></div>
         </div>
         <div style={{ padding:"18px 20px" }}>
           <ReadBlock label="Problem" text={init.problemStatement} />
@@ -4811,12 +5718,6 @@ function EndorserView({ init, role, set, updateObs, readOnly }) {
             <ReadMeta label="Owner" value={init.initiativeOwnerId} />
             <ReadMeta label="Sponsor" value={init.sponsorId||"—"} />
             <ReadMeta label="Sub-domain" value={init.subDomainId||"—"} />
-            <ReadMeta label="Frameworks" value={init.frameworkAlignment.join(", ")||"—"} />
-          </div>
-          <div style={{ marginTop:16 }}>
-            <ReadLabel>KPIs ({init.kpis.length})</ReadLabel>
-            {init.kpis.map((k)=><div key={k.uid} style={{ fontSize:13, padding:"5px 0", borderBottom:`1px solid ${C.border}` }}><strong>{k.name||"(unnamed)"}</strong> <span style={{ color:C.textMuted }}>— baseline {k.baseline||"?"} → target {k.target||"?"} {k.unit}</span></div>)}
-            {init.kpis.length===0 && <div style={{ fontSize:12.5, color:C.textMuted }}>None yet.</div>}
           </div>
           {init.dependencies.length>0 && <div style={{ marginTop:16 }}><ReadLabel>Dependencies</ReadLabel>{init.dependencies.map((d,i)=><div key={i} style={{ fontSize:13, padding:"4px 0" }}>{d.dependsOnId} — {d.nature} <Badge text={d.severity} color={d.severity==="HIGH"?C.red:d.severity==="MEDIUM"?C.amber:C.green} /></div>)}</div>}
         </div>
@@ -4825,7 +5726,7 @@ function EndorserView({ init, role, set, updateObs, readOnly }) {
       <div style={{ background:"#fff", border:`1px solid ${C.border}`, borderRadius:10, padding:"18px 20px" }}>
         <div style={{ fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:0.7, color:C.deepest, marginBottom:14 }}>Endorsement</div>
         <EndorseChain init={init} />
-        {init.endorsements.length>0 && <div style={{ marginTop:16 }}>{init.endorsements.map((e,i)=><div key={i} style={{ fontSize:12.5, color:C.textMuted, padding:"5px 0", borderTop:i?`1px solid ${C.border}`:"none" }}><strong style={{ color:e.decision==="ENDORSED"?C.green:e.decision==="DISMISSED"?C.grey:C.red }}>{e.step} {e.decision.toLowerCase().replace("_"," ")}</strong> · {e.date}{e.comment && <> — {e.comment}</>}</div>)}</div>}
+        {init.endorsements.length>0 && <div style={{ marginTop:16 }}>{init.endorsements.map((e,i)=><div key={i} style={{ fontSize:12.5, color:C.textMuted, padding:"5px 0", borderTop:i?`1px solid ${C.border}`:"none" }}><strong style={{ color:e.decision==="ENDORSED"?C.green:e.decision==="DISMISSED"?C.grey:C.red }}>{e.step} {e.decision.toLowerCase().replace("_"," ")}</strong> · {e.date}{e.comment && <> — “{e.comment}”</>}</div>)}</div>}
 
         <div style={{ marginTop:18 }}>
           {readOnly && <p style={{ fontSize:13, color:C.textMuted }}>Read-only — you are neither the owner nor an endorser of this initiative.</p>}
@@ -4861,6 +5762,9 @@ function ReadMeta({ label, value }) {
   return <div><ReadLabel>{label}</ReadLabel><div style={{ fontSize:13, color:C.textDark, marginTop:2 }}>{value}</div></div>;
 }
 
+/* =====================================================================
+   MODULE 3 — BUDGETING (plan list + Research/RFI workspace)
+   ===================================================================== */
 function BSectionLabel({ children, right }) {
   return (
     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", borderBottom:`1px solid ${C.border}`, paddingBottom:6, marginBottom:14 }}>
@@ -4872,6 +5776,7 @@ function BSectionLabel({ children, right }) {
 const moneyInput = { ...inputStyle, padding:"7px 9px", fontSize:13 };
 
 function Budgeting({ identity, isOversight, initiatives, plans, updatePlan, createPlan, activePlanId, setActivePlanId, pendingInitiativeId, setPendingInitiativeId, onOpenInitiative, cycle, setCycle, campaign }) {
+  // creating a new plan for an endorsed initiative with none yet
   if (pendingInitiativeId && !activePlanId) {
     const init = initiatives.find((i) => i.initiativeId === pendingInitiativeId);
     if (!init) { setPendingInitiativeId(null); return null; }
@@ -4884,6 +5789,7 @@ function Budgeting({ identity, isOversight, initiatives, plans, updatePlan, crea
     );
   }
 
+  // open a specific plan's workspace
   if (activePlanId) {
     const plan = plans.find((p) => p.planId === activePlanId);
     if (!plan) { setActivePlanId(null); return null; }
@@ -4906,6 +5812,7 @@ function Budgeting({ identity, isOversight, initiatives, plans, updatePlan, crea
 }
 
 function PlanList({ identity, isOversight, initiatives, plans, onOpenPlan, cycle, setCycle, campaign }) {
+  // scope: oversight sees all; lead sees plans for initiatives in their domains or owned
   const scoped = isOversight
     ? plans
     : plans.filter((p) => {
@@ -4913,6 +5820,7 @@ function PlanList({ identity, isOversight, initiatives, plans, onOpenPlan, cycle
         return init && (identity.domains.includes(init.domainId) || init.initiativeOwnerId === identity.name);
       });
 
+  // plans awaiting THIS reviewer's action
   const awaitingMe = isOversight ? scoped.filter((p) =>
     (identity.role==="CSSMO" && p.currentStage==="LEADERSHIP_REVIEW") ||
     (identity.role==="CISO" && p.currentStage==="CISO_APPROVAL")
@@ -4969,7 +5877,7 @@ function PlanList({ identity, isOversight, initiatives, plans, onOpenPlan, cycle
         })}
         {scoped.length === 0 && (
           <div style={{ background:C.cardBg, border:`1px dashed ${C.border}`, borderRadius:8, padding:"40px", textAlign:"center", color:C.textMuted, fontSize:14 }}>
-            No budget plans yet. Open an endorsed initiative and choose "Proceed to Budgeting" to create one.
+            No budget plans yet. Open an endorsed initiative and choose “Proceed to Budgeting” to create one.
           </div>
         )}
       </div>
@@ -4977,10 +5885,12 @@ function PlanList({ identity, isOversight, initiatives, plans, onOpenPlan, cycle
   );
 }
 
+/* ---------- budget cycle banner ---------- */
 function CycleBanner({ cycle, setCycle, plans, initiatives, isOversight, campaign }) {
   const { cycleName, corporateSubmissionDate, windowStart, estimatedOpenDate, status, autoOpened, openedManually, milestones } = cycle;
   const today = DEMO_TODAY;
 
+  // progress: plans approved vs total; approved $ vs total proposed $
   const total = plans.length;
   const approved = plans.filter((p)=>p.currentStage==="PLAN_APPROVED").length;
   const approvedUSD = plans.filter((p)=>p.currentStage==="PLAN_APPROVED").reduce((a,p)=>a+planProposedTotal(p),0);
@@ -4990,6 +5900,7 @@ function CycleBanner({ cycle, setCycle, plans, initiatives, isOversight, campaig
 
   const scanClosed = campaign?.status === "CLOSED";
 
+  // PLANNED: not yet open. The budget cycle can only open once the horizon scan closes.
   if (status === "PLANNED") {
     function openCycle(){ setCycle((c)=>({ ...c, status:"ACTIVE", openedManually:true, windowStart: today })); }
     return (
@@ -5006,6 +5917,7 @@ function CycleBanner({ cycle, setCycle, plans, initiatives, isOversight, campaig
                 ? "The horizon scan has closed — the budget cycle is ready to open. Endorsed initiatives can now be budgeted."
                 : "Budgeting opens after the horizon scan closes, so initiatives are scanned and endorsed before they're budgeted."}
             </div>
+            {/* estimated dates */}
             <div style={{ display:"flex", gap:24, marginTop:14, flexWrap:"wrap" }}>
               <div>
                 <div style={{ fontSize:10.5, fontWeight:600, textTransform:"uppercase", letterSpacing:0.4, color:C.textMuted }}>Estimated open</div>
@@ -5032,6 +5944,7 @@ function CycleBanner({ cycle, setCycle, plans, initiatives, isOversight, campaig
             </div>
           )}
         </div>
+        {/* milestone preview (estimated) */}
         <div style={{ marginTop:16 }}>
           <MilestoneTimeline milestones={milestones} today={today} muted />
         </div>
@@ -5088,6 +6001,7 @@ function CycleBanner({ cycle, setCycle, plans, initiatives, isOversight, campaig
         )}
       </div>
 
+      {/* dual progress */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginTop:14 }}>
         <div style={{ background:"#fff", border:`1px solid ${C.border}`, borderRadius:7, padding:"11px 13px" }}>
           <div style={{ fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:0.4, color:C.textMuted }}>Plans approved</div>
@@ -5101,6 +6015,7 @@ function CycleBanner({ cycle, setCycle, plans, initiatives, isOversight, campaig
         </div>
       </div>
 
+      {/* milestone mini-timeline */}
       <div style={{ marginTop:14 }}>
         <MilestoneTimeline milestones={milestones} today={today} />
       </div>
@@ -5132,6 +6047,7 @@ function MilestoneTimeline({ milestones, today, muted }) {
   );
 }
 
+/* ---------- per-domain budget readiness tracker (oversight) ---------- */
 function CycleReadinessTracker({ plans, initiatives }) {
   const rows = ALL_DOMAINS.map((d) => {
     const domainPlans = plans.filter((p) => { const init = initiatives.find((i)=>i.initiativeId===p.initiativeId); return init && init.domainId === d; });
@@ -5355,11 +6271,39 @@ function MoneyGrid({ years, rows, onChange, label }) {
 
 function ResearchTrack({ years, research, setResearch }) {
   function set(patch){ setResearch((s)=>({ ...s, ...patch })); }
-  const hasData = gridHasData(years, research.rows);
-  const valid = gridValid(years, research.rows);
-  const canComplete = research.scope.trim() && research.confidence && hasData && valid;
+  // Calculator lines are the source of truth; the per-year grid is derived from them
+  // and written back to research.rows so consolidation / review / records read it as before.
+  const resources = research.resources || [];
+  const technology = research.technology || [];
+
+  function commit(nextResources, nextTechnology) {
+    const r2 = nextResources ?? resources, t2 = nextTechnology ?? technology;
+    const derived = deriveResearchRows(years, { resources:r2, technology:t2 });
+    setResearch((s)=>({ ...s, resources:r2, technology:t2, rows:derived }));
+  }
+  // Resource row ops
+  function addResource(){ commit([...resources, { id:Math.random().toString(36).slice(2,8), role:"", count:"1", manDays:"", dayRate:"", fund:"OPEX", split:years.reduce((a,y,idx)=>{a[y]=idx===0?"100":"0";return a;},{}) }], null); }
+  function updResource(id,k,v){ const cleaned=["count","manDays","dayRate"].includes(k)?v.replace(/[^0-9.]/g,""):v; commit(resources.map((r)=>r.id===id?{...r,[k]:cleaned}:r), null); }
+  function updResourceSplit(id,year,v){ const cleaned=v.replace(/[^0-9.]/g,""); commit(resources.map((r)=>r.id===id?{...r,split:{...r.split,[year]:cleaned}}:r), null); }
+  function remResource(id){ commit(resources.filter((r)=>r.id!==id), null); }
+  // Technology row ops
+  function addTech(){ commit(null, [...technology, { id:Math.random().toString(36).slice(2,8), item:"", capex:"", annualLicense:"" }]); }
+  function updTech(id,k,v){ const cleaned=["capex","annualLicense"].includes(k)?v.replace(/[^0-9.]/g,""):v; commit(null, technology.map((t)=>t.id===id?{...t,[k]:cleaned}:t)); }
+  function remTech(id){ commit(null, technology.filter((t)=>t.id!==id)); }
+
+  const derivedRows = researchHasLines(research) ? deriveResearchRows(years, { resources, technology }) : (research.rows || emptyRows(years));
+  const totals = rowsTotalsByYear(years, derivedRows);
+  const grand = totals.reduce((a,t)=>a+t.total,0);
+  const hasData = researchHasLines(research) || gridHasData(years, research.rows);
+  const allSplitsOk = resources.every((r)=>{ const s2=splitPctSum(r,years); return s2===100 || s2===0; });
+  const canComplete = research.scope.trim() && research.confidence && hasData && allSplitsOk;
+
+  const moneyCell = { textAlign:"right", fontSize:13, color:C.textDark };
+  const thR = { textAlign:"right", color:"#fff", fontSize:10, fontWeight:600, textTransform:"uppercase", letterSpacing:0.4, padding:"8px 9px", whiteSpace:"nowrap" };
+  const thL = { ...thR, textAlign:"left" };
+
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:18, maxWidth:1000 }}>
+    <div style={{ display:"flex", flexDirection:"column", gap:18, maxWidth:1040 }}>
       <div style={{ background:C.cardBg, border:`1px solid ${C.border}`, borderRadius:10, padding:"20px 22px" }}>
         <BSectionLabel right={<Badge text={research.completed?"Completed":"In progress"} color={research.completed?C.green:C.amber} />}>Research — Internal Estimate</BSectionLabel>
         <Field label="Research Scope" required hint="What was investigated to produce this estimate?"><textarea style={{ ...inputStyle, minHeight:70, resize:"vertical" }} value={research.scope} onChange={(e)=>set({scope:e.target.value})} /></Field>
@@ -5369,12 +6313,102 @@ function ResearchTrack({ years, research, setResearch }) {
         </div>
         <Field label="Confidence Level" required hint="How reliable is this internal estimate?"><ConfidencePicker value={research.confidence} onChange={(v)=>set({confidence:v})} /></Field>
       </div>
+
+      {/* Resourcing calculator */}
       <div style={{ background:C.cardBg, border:`1px solid ${C.border}`, borderRadius:10, padding:"20px 22px" }}>
-        <BSectionLabel>Per-Year Estimate</BSectionLabel>
-        <MoneyGrid years={years} rows={research.rows} onChange={(rows)=>set({rows})} label="Research total" />
+        <BSectionLabel>Resourcing</BSectionLabel>
+        <div style={{ fontSize:12.5, color:C.textMuted, marginBottom:12, lineHeight:1.5 }}>Estimate effort by role. Line cost = resources × man-days × day rate. Choose whether each line is CapEx (e.g. one-off implementation effort) or OpEx (run/BAU), and spread it across the spend years by % (each row should sum to 100%).</div>
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", minWidth:760 }}>
+            <thead><tr style={{ background:C.deepest }}>
+              <th style={thL}>Role</th><th style={thR}># Res.</th><th style={thR}>Man-days</th><th style={thR}>Day Rate</th><th style={thR}>Fund</th>
+              {years.map((y)=><th key={y} style={thR}>{y} %</th>)}
+              <th style={thR}>Line Total</th><th style={thR}></th>
+            </tr></thead>
+            <tbody>
+              {resources.length===0 ? (
+                <tr><td colSpan={6+years.length} style={{ padding:"16px 11px", textAlign:"center", color:C.textMuted, fontSize:13 }}>No resource lines yet. Add the roles this project needs.</td></tr>
+              ) : resources.map((r,i)=>{
+                const lt = resourceLineTotal(r); const ps = splitPctSum(r,years); const splitBad = ps!==100 && ps!==0;
+                return (
+                  <tr key={r.id} style={{ background:i%2?"#F7FBFE":"#fff", borderTop:`1px solid ${C.border}` }}>
+                    <td style={{ padding:"6px 8px" }}><input style={{ ...moneyInput, textAlign:"left", minWidth:150 }} value={r.role} onChange={(e)=>updResource(r.id,"role",e.target.value)} placeholder="e.g. Security Engineer" /></td>
+                    <td style={{ padding:"6px 8px" }}><input style={{ ...moneyInput, textAlign:"right", width:56 }} value={r.count} onChange={(e)=>updResource(r.id,"count",e.target.value)} placeholder="1" /></td>
+                    <td style={{ padding:"6px 8px" }}><input style={{ ...moneyInput, textAlign:"right", width:72 }} value={r.manDays} onChange={(e)=>updResource(r.id,"manDays",e.target.value)} placeholder="0" /></td>
+                    <td style={{ padding:"6px 8px" }}><input style={{ ...moneyInput, textAlign:"right", width:84 }} value={r.dayRate} onChange={(e)=>updResource(r.id,"dayRate",e.target.value)} placeholder="0" /></td>
+                    <td style={{ padding:"6px 8px" }}><select style={{ ...moneyInput, width:80 }} value={r.fund} onChange={(e)=>updResource(r.id,"fund",e.target.value)}><option value="OPEX">OpEx</option><option value="CAPEX">CapEx</option></select></td>
+                    {years.map((y)=><td key={y} style={{ padding:"6px 6px" }}><input style={{ ...moneyInput, textAlign:"right", width:48, borderColor:splitBad?C.amber:undefined }} value={r.split?.[y]??""} onChange={(e)=>updResourceSplit(r.id,y,e.target.value)} placeholder="0" /></td>)}
+                    <td style={{ padding:"6px 8px", ...moneyCell, fontWeight:700 }}>{USD(lt)}</td>
+                    <td style={{ padding:"6px 4px", textAlign:"center" }}><button onClick={()=>remResource(r.id)} style={{ background:"transparent", border:"none", color:C.red, fontSize:17, cursor:"pointer" }}>×</button></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {resources.some((r)=>{const ps=splitPctSum(r,years);return ps!==100&&ps!==0;}) && <div style={{ fontSize:12, color:C.amber, marginTop:8 }}>⚠ One or more rows don't split to 100% across the years — those lines are allocated by whatever % you entered.</div>}
+        <div style={{ marginTop:10 }}><Btn kind="secondary" onClick={addResource}>+ Add Resource</Btn></div>
       </div>
+
+      {/* Technology calculator */}
+      <div style={{ background:C.cardBg, border:`1px solid ${C.border}`, borderRadius:10, padding:"20px 22px" }}>
+        <BSectionLabel>Technology & Licenses</BSectionLabel>
+        <div style={{ fontSize:12.5, color:C.textMuted, marginBottom:12, lineHeight:1.5 }}>One-off technology / implementation cost is CapEx and lands in {years[0]}. The annual license fee is OpEx and recurs automatically in every spend year.</div>
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", minWidth:560 }}>
+            <thead><tr style={{ background:C.deepest }}>
+              <th style={thL}>Technology / License</th><th style={thR}>One-off CapEx ({years[0]})</th><th style={thR}>Annual License (OpEx / yr)</th><th style={thR}>{years.length}-yr Total</th><th style={thR}></th>
+            </tr></thead>
+            <tbody>
+              {technology.length===0 ? (
+                <tr><td colSpan={5} style={{ padding:"16px 11px", textAlign:"center", color:C.textMuted, fontSize:13 }}>No technology lines yet. Add licenses or tools the project requires.</td></tr>
+              ) : technology.map((t,i)=>{
+                const lifeTotal = num(t.capex) + num(t.annualLicense)*years.length;
+                return (
+                  <tr key={t.id} style={{ background:i%2?"#F7FBFE":"#fff", borderTop:`1px solid ${C.border}` }}>
+                    <td style={{ padding:"6px 8px" }}><input style={{ ...moneyInput, textAlign:"left", minWidth:200 }} value={t.item} onChange={(e)=>updTech(t.id,"item",e.target.value)} placeholder="e.g. PAM platform license" /></td>
+                    <td style={{ padding:"6px 8px" }}><input style={{ ...moneyInput, textAlign:"right", width:120 }} value={t.capex} onChange={(e)=>updTech(t.id,"capex",e.target.value)} placeholder="0" /></td>
+                    <td style={{ padding:"6px 8px" }}><input style={{ ...moneyInput, textAlign:"right", width:120 }} value={t.annualLicense} onChange={(e)=>updTech(t.id,"annualLicense",e.target.value)} placeholder="0" /></td>
+                    <td style={{ padding:"6px 8px", ...moneyCell, fontWeight:700 }}>{USD(lifeTotal)}</td>
+                    <td style={{ padding:"6px 4px", textAlign:"center" }}><button onClick={()=>remTech(t.id)} style={{ background:"transparent", border:"none", color:C.red, fontSize:17, cursor:"pointer" }}>×</button></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ marginTop:10 }}><Btn kind="secondary" onClick={addTech}>+ Add Technology</Btn></div>
+      </div>
+
+      {/* Derived per-year roll-up */}
+      <div style={{ background:C.cardBg, border:`1px solid ${C.border}`, borderRadius:10, padding:"20px 22px" }}>
+        <BSectionLabel right={<span style={{ fontSize:12.5, color:C.textMuted }}>Auto-calculated from the tables above</span>}>Per-Year Estimate</BSectionLabel>
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", minWidth:560 }}>
+            <thead><tr style={{ background:C.deepest }}>{["Year","Service Fees","License Fees","CapEx","OpEx","Year Total"].map((h)=><th key={h} style={{ textAlign:h==="Year"?"left":"right", color:"#fff", fontSize:10.5, fontWeight:600, textTransform:"uppercase", letterSpacing:0.4, padding:"9px 11px", whiteSpace:"nowrap" }}>{h}</th>)}</tr></thead>
+            <tbody>
+              {totals.map((t,i)=>(
+                <tr key={t.year} style={{ background:i%2?"#F7FBFE":"#fff", borderTop:`1px solid ${C.border}` }}>
+                  <td style={{ padding:"8px 11px", fontWeight:700, fontSize:13.5 }}>{t.year}</td>
+                  <td style={{ padding:"8px 11px", ...moneyCell }}>{USD(t.service)}</td>
+                  <td style={{ padding:"8px 11px", ...moneyCell }}>{USD(t.license)}</td>
+                  <td style={{ padding:"8px 11px", ...moneyCell }}>{USD(t.capex)}</td>
+                  <td style={{ padding:"8px 11px", ...moneyCell }}>{USD(t.opex)}</td>
+                  <td style={{ padding:"8px 11px", ...moneyCell, fontWeight:700 }}>{USD(t.total)}</td>
+                </tr>
+              ))}
+              <tr style={{ background:C.deepest, color:"#fff" }}>
+                <td style={{ padding:"9px 11px", fontWeight:700 }}>Total</td>
+                <td colSpan={4} />
+                <td style={{ padding:"9px 11px", textAlign:"right", fontWeight:800 }}>{USD(grand)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <CompleteBar label="Research" canComplete={canComplete} completed={research.completed}
-        invalidReason={!research.scope.trim()?"Add a research scope":!research.confidence?"Set a confidence level":!hasData?"Enter at least one year's figures":!valid?"Fix the year(s) where fees ≠ CapEx/OpEx":""}
+        invalidReason={!research.scope.trim()?"Add a research scope":!research.confidence?"Set a confidence level":!hasData?"Add at least one resource or technology line":!allSplitsOk?"Fix the resource rows whose % don't sum to 100":""}
         onToggle={()=>set({completed:!research.completed})} />
     </div>
   );
@@ -5486,6 +6520,7 @@ function Consolidated({ years, plan, setSourceByYear, updatePlan, identity, isOv
   const stage = plan.currentStage;
   const inReview = ["LEADERSHIP_REVIEW","CISO_APPROVAL","PLAN_APPROVED"].includes(stage);
 
+  /* submit to leadership review: lock estimate, seed agreed = proposed, advance to CSSMO */
   function submitToReview() {
     const agreed = {};
     years.forEach((y)=>{ const p=pick(y); agreed[y] = { service:String(p.service), license:String(p.license), capex:String(p.capex), opex:String(p.opex) }; });
@@ -5517,7 +6552,9 @@ function Consolidated({ years, plan, setSourceByYear, updatePlan, identity, isOv
                 <td style={{ padding:"8px 11px", fontWeight:700 }}>{y}</td>
                 <td style={{ padding:"6px 11px" }}>
                   {inReview ? <span style={{ fontSize:12.5, color:C.textMuted }}>{(sourceByYear[y]||(research?"RESEARCH":"RFI"))==="RESEARCH"?"Research":"RFI"}</span>
-                    : <select style={{ ...moneyInput, width:"auto" }} value={sourceByYear[y]||(research?"RESEARCH":"RFI")} onChange={(e)=>setSourceByYear((s)=>({...s,[y]:e.target.value}))}>{research && <option value="RESEARCH">Research</option>}{rfi && <option value="RFI">RFI</option>}</select>}
+                    : (research && rfi)
+                      ? <select style={{ ...moneyInput, width:"auto", minWidth:120, cursor:"pointer", appearance:"auto", WebkitAppearance:"menulist", MozAppearance:"menulist", position:"relative", zIndex:1 }} value={sourceByYear[y]||"RESEARCH"} onChange={(e)=>setSourceByYear((s)=>({...(s||{}),[y]:e.target.value}))}><option value="RESEARCH">Research</option><option value="RFI">RFI</option></select>
+                      : <span style={{ fontSize:12.5, color:C.textMuted }}>{research?"Research":"RFI"}<span style={{ fontSize:11, marginLeft:6, opacity:0.7 }}>(only source)</span></span>}
                 </td>
                 <td style={{ padding:"8px 11px", textAlign:"right" }}>{USD(p.service)}</td>
                 <td style={{ padding:"8px 11px", textAlign:"right" }}>{USD(p.license)}</td>
@@ -5555,15 +6592,18 @@ function SubmitToReview({ research, rfi, allValid, grand, onSubmit }) {
   );
 }
 
+/* ---------- Module 4: Leadership Review (CSSMO agrees & adjusts → CISO final approval) ---------- */
 function LeadershipReview({ plan, years, updatePlan, identity, isOversight, initiative }) {
   const stage = plan.currentStage;
   const review = plan.review || { sponsorConfirmed:false, sponsorChangeRequested:false, newSponsorId:null, log:[], cssmoAgreed:false };
   const agreedRows = plan.agreedRows || {};
-  const role = identity.role;
+  const role = identity.role; // CSSMO | CISO | DOMAIN_LEAD
   const isCSSMO = role === "CSSMO";
   const isCISO = role === "CISO";
 
+  // who can edit agreed amounts: both CSSMO and CISO, while not yet approved
   const canEditAmounts = (isCSSMO || isCISO) && stage !== "PLAN_APPROVED";
+  // CSSMO acts at LEADERSHIP_REVIEW; CISO acts at CISO_APPROVAL
   const cssmoCanAct = isCSSMO && stage === "LEADERSHIP_REVIEW";
   const cisoCanAct = isCISO && stage === "CISO_APPROVAL";
 
@@ -5585,6 +6625,7 @@ function LeadershipReview({ plan, years, updatePlan, identity, isOversight, init
   }
   function cisoApprove(){
     if (!allValid) return;
+    // generate one BudgetRecord per spend year from agreed amounts
     const records = years.map((y)=>{ const r=agreedRows[y]||{}; return {
       budgetRecordId:`BUD-2026-${Math.floor(Math.random()*900)+100}`,
       planId:plan.planId, initiativeId:plan.initiativeId, year:y,
@@ -5610,6 +6651,7 @@ function LeadershipReview({ plan, years, updatePlan, identity, isOversight, init
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
+      {/* review chain */}
       <div style={{ background:C.cardBg, border:`1px solid ${C.border}`, borderRadius:10, padding:"18px 20px" }}>
         <BSectionLabel right={<Badge text={stage==="LEADERSHIP_REVIEW"?"With CSSMO":"With CISO"} color={C.amber} />}>Leadership Review</BSectionLabel>
         <ReviewChain stage={stage} />
@@ -5624,6 +6666,7 @@ function LeadershipReview({ plan, years, updatePlan, identity, isOversight, init
         )}
       </div>
 
+      {/* sponsor confirmation */}
       <div style={{ background:C.cardBg, border:`1px solid ${C.border}`, borderRadius:10, padding:"18px 20px" }}>
         <BSectionLabel>Sponsor</BSectionLabel>
         <div style={{ fontSize:13.5, marginBottom:12 }}>Current sponsor: <strong>{initiative?.sponsorId || "—"}</strong></div>
@@ -5649,6 +6692,7 @@ function LeadershipReview({ plan, years, updatePlan, identity, isOversight, init
         )}
       </div>
 
+      {/* agreed amounts grid */}
       <div style={{ background:C.cardBg, border:`1px solid ${C.border}`, borderRadius:10, padding:"20px 22px" }}>
         <BSectionLabel right={<Badge text={`Agreed total ${USD(agreedGrand)}`} color={C.deepest} />}>
           Agreed Amounts {canEditAmounts ? "(editable)" : "(read-only)"}
@@ -5683,6 +6727,7 @@ function LeadershipReview({ plan, years, updatePlan, identity, isOversight, init
         </div>
       </div>
 
+      {/* actions */}
       <div style={{ background:"#F7FBFE", border:`1px solid ${C.border}`, borderRadius:10, padding:"18px 20px" }}>
         {cssmoCanAct && (
           <div>
@@ -5792,6 +6837,9 @@ function SourceSummary({ title, rec, totals }) {
   );
 }
 
+// ── Bridge: expose budgeting's seedInitiatives as the suite-wide shared seed ─
+// `seedInitiatives` is defined at module scope inside the budgeting section
+// above. By aliasing it here we make it visible to the suite's launcher.
 const SHARED_SEED_INITIATIVES = seedInitiatives;
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -5843,6 +6891,7 @@ export default function CyberPortfolioSuite() {
     );
   }
 
+  // ── LAUNCHER ──
   return <SuiteLauncher onPick={setApp} sharedInitiatives={sharedInitiatives} />;
 }
 
@@ -5887,6 +6936,7 @@ function SuiteLauncher({ onPick, sharedInitiatives }) {
 
   return (
     <div style={{ font: FONT, background: PAGE_BG, minHeight: "100vh", color: TEXT_DARK }}>
+      {/* Suite header */}
       <div
         style={{
           background: DEEP,
@@ -5941,6 +6991,7 @@ function SuiteLauncher({ onPick, sharedInitiatives }) {
         </div>
       </div>
 
+      {/* Body */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 36px 64px" }}>
         <div style={{ marginBottom: 28 }}>
           <div
